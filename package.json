@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "description": "Memory-safe workflow guard for Pi: phase budgets, checkpoints, command risk warnings, and file-size checks.",
   "type": "module",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "MIT",
   "keywords": [
     "pi-package",
     "pi-extension",
@@ -25,7 +24,8 @@
     "extensions",
     "scripts",
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
