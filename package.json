@@ -1,0 +1,41 @@
+{
+  "name": "pi-work-guard",
+  "version": "0.1.0",
+  "description": "Memory-safe workflow guard for Pi: phase budgets, checkpoints, command risk warnings, and file-size checks.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "workflow-guard",
+    "memory-safety"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "check:file-size": "node scripts/check-file-size.mjs",
+    "test": "npm run typecheck && npm run check:file-size"
+  },
+  "files": [
+    "extensions",
+    "scripts",
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.2",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
