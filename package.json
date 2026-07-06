@@ -1,6 +1,6 @@
 {
   "name": "pi-work-guard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Memory-safe workflow guard for Pi: phase budgets, checkpoints, command risk warnings, and file-size checks.",
   "type": "module",
   "license": "MIT",
@@ -18,12 +18,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "check:file-size": "node scripts/check-file-size.mjs",
-    "test": "npm run typecheck && npm run check:file-size"
+    "test:unit": "node --test tests/*.test.mjs",
+    "test": "npm run typecheck && npm run test:unit && npm run check:file-size"
   },
   "files": [
     "extensions",
     "scripts",
     "src",
+    "tests",
     "README.md",
     "LICENSE"
   ],

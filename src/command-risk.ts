@@ -26,6 +26,14 @@ function hasBoundedOutput(command: string): boolean {
 	return /\|\s*(head|tail|sed\s+-n|awk\s+)/.test(command) || /--stat\b/.test(command);
 }
 
+function hasSearchLimit(command: string): boolean {
+	return /(^|\s)(-m\s*\d+|--max-count(?:=|\s+)\d+|--count\b|--files\b)/.test(command);
+}
+
+function hasUnboundedFileRead(command: string): boolean {
+	return /\b(cat|type)\s+(?!<<)[^|;&]+/.test(command);
+}
+
 export function analyzeBashCommand(
 	command: string,
 	policy: CommandRiskPolicy = DEFAULT_COMMAND_RISK_POLICY,
@@ -63,7 +71,7 @@ export function analyzeBashCommand(
 		});
 	}
 
-	if (/\b(cat|type)\s+[^|;&]+/.test(command) && !hasBoundedOutput(command)) {
+	if (hasUnboundedFileRead(command) && !hasBoundedOutput(command)) {
 		risks.push({
 			severity: "warning",
 			code: "possibly-unbounded-file-read",
@@ -71,7 +79,7 @@ export function analyzeBashCommand(
 		});
 	}
 
-	if (/\b(find|rg|grep)\b/.test(command) && !hasBoundedOutput(command) && !/\b(-m|--max-count|--count|--files)\b/.test(command)) {
+	if (/\b(find|rg|grep)\b/.test(command) && !hasBoundedOutput(command) && !hasSearchLimit(command)) {
 		risks.push({
 			severity: "info",
 			code: "search-output-budget",
