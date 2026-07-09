@@ -1,34 +1,36 @@
 # pi-work-guard
 
-Memory-safe workflow guard for Pi.
+Memory-safe workflow guard for Pi sessions.
+
+`pi-work-guard` helps coding agents avoid commands that flood the context window, exhaust memory, or make large work sessions hard to resume. It guards risky shell patterns, provides checkpoint/phase commands, records metrics, and ships a file-size budget check for package development.
 
 ## Features
 
-- Blocks unbounded/high-output bash commands and returns retry guidance to the agent.
-- Supports configurable modes: `off`, `warn`, `block`, and `strict`.
-- Optionally auto-fixes risky bash commands by adding bounded output.
+- Blocks or warns on unbounded/high-output bash commands.
+- Supports modes: `off`, `warn`, `block`, and `strict`.
+- Optionally auto-fixes eligible risky commands by adding bounded output.
 - Persists guard metrics to `.rpiv/artifacts/work-guard/events.jsonl`.
-- Provides `/work-guard` to inspect repository size/diff risk and `/work-guard config` to inspect active rules.
-- Provides `/work-checkpoint` to write a resumable checkpoint file.
-- Provides `/work-phase` to mark current work phase.
-- Ships `npm run check:file-size` for enforcing file-size budgets.
+- `/work-guard` inspects repository size and diff risk.
+- `/work-guard config` shows active rules and config sources.
+- `/work-checkpoint` writes a resumable checkpoint file.
+- `/work-phase` records start/done phase markers.
+- `/work-budget` reports current budget status.
+- `npm run check:file-size` enforces source/test file-size limits.
 
 ## Bash behavior guard
 
-The extension allows low-risk warnings through, but blocks commands that are likely to flood context or memory:
+The extension can block commands that are likely to produce unbounded output:
 
-- `git diff` without `--stat` or an output bound
-- `cat`/`type` reads without an output bound
-- `find`/`rg`/`grep` searches without `head`, `sed -n`, `-m`, `--max-count`, `--count`, or `--files`
-- extremely large commands
+- `git diff` without `--stat`, `--name-only`, or another output bound.
+- `cat` / `type` reads without `head`, `sed -n`, `tail`, or similar limits.
+- `find`, `rg`, or `grep` searches without result/count bounds.
+- Extremely large commands or heredoc batches in strict mode.
 
-Blocked tool calls include a `pi-work-guard` reason with concrete retry guidance, so the agent can retry with a bounded command instead of merely showing a UI warning.
+Blocked calls include a `pi-work-guard` reason with concrete retry guidance so the agent can rerun a safer bounded command.
 
 ## Configuration
 
-Defaults are conservative: `mode: "block"`, `autoFix: false`, and all unbounded git diff/file-read/search rules enabled.
-
-Global config can live under `workGuard` in `~/.pi/agent/settings.json`:
+Defaults are conservative:
 
 ```json
 {
@@ -43,22 +45,14 @@ Global config can live under `workGuard` in `~/.pi/agent/settings.json`:
 }
 ```
 
-Project overrides can live at `.pi/work-guard.json` with the same shape. `PI_WORK_GUARD_MODE=off|warn|block|strict` overrides only the mode for one process.
+Global config can live under `workGuard` in `~/.pi/agent/settings.json`. Project overrides can live at `.pi/work-guard.json`. `PI_WORK_GUARD_MODE=off|warn|block|strict` overrides only the mode for one process.
 
-Modes:
+## Modes
 
-- `off`: do nothing
-- `warn`: notify and persist metrics, but never block
-- `block`: block configured unbounded-output risks
-- `strict`: also blocks warning-severity risks such as oversized commands/heredoc batches
-
-Run `/work-guard config` to inspect the active config and metrics path. If `autoFix` is enabled, eligible commands are rewritten in place instead of blocked.
-
-## Install
-
-```bash
-pi install .
-```
+- `off` — do nothing.
+- `warn` — notify and persist metrics, but never block.
+- `block` — block configured unbounded-output risks.
+- `strict` — also block warning-severity risks such as oversized commands/heredocs.
 
 ## Commands
 
@@ -70,3 +64,43 @@ pi install .
 /work-phase done [note]
 /work-budget
 ```
+
+## Repository layout
+
+```text
+extensions/index.ts         Pi extension entrypoint
+src/command-risk.ts         command classifier and retry guidance
+src/repo-guard.ts           repository/diff/file-size risk helpers
+scripts/check-file-size.mjs file-size budget check
+tests/work-guard.test.mjs   node:test unit coverage
+```
+
+## Install
+
+From GitHub:
+
+```bash
+pi install git:github.com/T50-Systems/pi-work-guard
+```
+
+From a local checkout:
+
+```bash
+git clone https://github.com/T50-Systems/pi-work-guard
+cd pi-work-guard
+pi install .
+```
+
+## Development
+
+```bash
+npm install
+npm run typecheck
+npm run test:unit
+npm run check:file-size
+npm test
+```
+
+## License
+
+MIT
