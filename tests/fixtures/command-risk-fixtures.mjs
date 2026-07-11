@@ -1,0 +1,101 @@
+const fixtureRows = [
+  {
+    name: "POSIX git diff",
+    shell: "posix",
+    riskCode: "unbounded-git-diff",
+    risky: "git diff",
+    bounded: "git diff --stat",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "changed",
+  },
+  {
+    name: "POSIX file read",
+    shell: "posix",
+    riskCode: "possibly-unbounded-file-read",
+    risky: "cat README.md",
+    bounded: "cat README.md | head -20",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "changed",
+  },
+  {
+    name: "POSIX search",
+    shell: "posix",
+    riskCode: "search-output-budget",
+    risky: "rg TODO src",
+    bounded: "rg --max-count 20 TODO src",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "changed",
+  },
+  {
+    name: "PowerShell git diff",
+    shell: "powershell",
+    riskCode: "unbounded-git-diff",
+    risky: "powershell -Command \"git diff\"",
+    bounded: "powershell -Command \"git diff --stat\"",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "unchanged",
+  },
+  {
+    name: "PowerShell file read",
+    shell: "powershell",
+    riskCode: "possibly-unbounded-file-read",
+    risky: "powershell -Command \"Get-Content README.md\"",
+    bounded: "powershell -Command \"Get-Content README.md -TotalCount 20\"",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "unchanged",
+  },
+  {
+    name: "PowerShell search",
+    shell: "powershell",
+    riskCode: "search-output-budget",
+    risky: "powershell -Command \"Select-String TODO -Path src/*\"",
+    bounded: "powershell -Command \"Select-String TODO -Path src/* | Select-Object -First 20\"",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "unchanged",
+  },
+  {
+    name: "cmd.exe git diff",
+    shell: "cmd",
+    riskCode: "unbounded-git-diff",
+    risky: "cmd.exe /c git diff",
+    bounded: "cmd.exe /c git diff --stat",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "unchanged",
+  },
+  {
+    name: "cmd.exe file read",
+    shell: "cmd",
+    riskCode: "possibly-unbounded-file-read",
+    risky: "cmd.exe /c type README.md",
+    bounded: "cmd.exe /c type README.md | powershell -Command \"$input | Select-Object -First 20\"",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "unchanged",
+  },
+  {
+    name: "cmd.exe search",
+    shell: "cmd",
+    riskCode: "search-output-budget",
+    risky: "cmd.exe /c findstr TODO README.md",
+    bounded: "cmd.exe /c findstr TODO README.md | powershell -Command \"$input | Select-Object -First 20\"",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "unchanged",
+  },
+];
+
+const classificationByMode = {
+  warn: { risky: "true-positive warning", bounded: "true-negative", falsePositive: false, falseNegative: false },
+  block: { risky: "true-positive block", bounded: "true-negative", falsePositive: false, falseNegative: false },
+  strict: { risky: "true-positive block", bounded: "true-negative", falsePositive: false, falseNegative: false },
+};
+
+export const riskFixtures = fixtureRows.map((fixture) => ({ ...fixture, classificationByMode }));
+
+export const unsupportedCompositionFixtures = [
+  { name: "pipeline", command: "rg TODO src | sort" },
+  { name: "redirection", command: "grep TODO README.md > matches.txt" },
+  { name: "subshell", command: "$(git diff)" },
+  { name: "and-chain", command: "cat README.md && echo done" },
+  { name: "semicolon-chain", command: "git diff; echo done" },
+  { name: "PowerShell", command: "powershell -Command \"Get-Content README.md\"" },
+  { name: "cmd.exe", command: "cmd.exe /c type README.md" },
+];

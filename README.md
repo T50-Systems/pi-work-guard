@@ -8,13 +8,13 @@ Use `pi-work-guard` when agents work in repositories where an unbounded `git dif
 
 ## Features
 
-- Blocks unbounded/high-output bash commands and returns retry guidance to the agent.
+- Blocks unbounded/high-output POSIX shell, PowerShell, and cmd.exe command forms and returns retry guidance to the agent.
 - Supports configurable modes: `off`, `warn`, `block`, and `strict`.
-- Optionally auto-fixes eligible commands by adding bounded output.
-- Persists privacy-minimized guard metrics to `.rpiv/artifacts/work-guard/events.jsonl`.
-- Provides `/work-guard` for repository size/diff risk and `/work-guard config` for active rules.
+- Optionally auto-fixes eligible simple commands; unsupported shell composition remains unchanged.
+- Persists privacy-minimized, size-bounded guard metrics to `.rpiv/artifacts/work-guard/events.jsonl`.
+- Provides `/work-guard` for repository size/diff risk and `/work-guard config` for active rules and retention status.
 - Provides `/work-checkpoint` for resumable checkpoints and `/work-phase` for phase markers.
-- Ships `npm run check:file-size` for enforcing file-size budgets.
+- Ships coverage, file-size, release, and performance regression gates.
 
 ## Requirements
 
@@ -57,11 +57,11 @@ Restart Pi after installation. For a one-off smoke test without changing setting
 The extension allows low-risk warnings through, but blocks commands likely to flood context or memory:
 
 - `git diff` without `--stat` or an output bound
-- `cat`/`type` reads without an output bound
-- `find`/`rg`/`grep` searches without `head`, `sed -n`, `-m`, `--max-count`, `--count`, or `--files`
+- `cat`/`type`/`Get-Content` reads without an output bound
+- `find`/`rg`/`grep`/`findstr`/`Select-String` searches without a recognized result cap
 - extremely large commands
 
-Blocked calls include a `pi-work-guard` reason and a bounded retry example.
+Pipelines, redirections, subshells, chaining, PowerShell, and cmd.exe forms are never auto-fixed because appending text could change their meaning. Blocked calls include a `pi-work-guard` reason and a bounded retry example.
 
 ## Configuration
 
@@ -77,7 +77,9 @@ Global config can live under `workGuard` in `~/.pi/agent/settings.json`:
     "autoFixLineLimit": 200,
     "blockGitDiff": true,
     "blockFileRead": true,
-    "blockSearch": true
+    "blockSearch": true,
+    "metricsEnabled": true,
+    "metricsMaxBytes": 1048576
   }
 }
 ```
@@ -93,7 +95,7 @@ Modes:
 - `block`: block configured unbounded-output risks
 - `strict`: also block warning-severity risks such as oversized commands/heredoc batches
 
-Run `/work-guard config` to inspect resolved values, source precedence, diagnostics, and the metrics path. If `autoFix` is enabled, eligible commands are rewritten in place instead of blocked.
+Run `/work-guard config` to inspect resolved values, source precedence, diagnostics, and metric retention state. `/work-budget` also reports current bytes and the last privacy-safe write error. If `autoFix` is enabled, only eligible simple commands are rewritten in place instead of blocked.
 
 ## Commands
 
@@ -108,7 +110,7 @@ Run `/work-guard config` to inspect resolved values, source precedence, diagnost
 
 ## Metrics and privacy
 
-Metrics include timestamps, working directory, action, mode, risk codes, and command length. Command text is deliberately not persisted because it may contain credentials or other sensitive values. Runtime metric and checkpoint files are gitignored by default; treat previously generated files from older versions as potentially sensitive.
+Metrics include timestamps, working directory, action, mode, risk codes, and command length. Command text is deliberately not persisted because it may contain credentials or other sensitive values. The active file rotates at `metricsMaxBytes` (default 1 MiB) and retains one prior valid JSONL file; set `metricsEnabled: false` to disable writes. Runtime metric and checkpoint files are gitignored by default.
 
 ## Troubleshooting
 
@@ -130,7 +132,7 @@ Metrics include timestamps, working directory, action, mode, risk codes, and com
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the clone-to-verified-change workflow and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. `npm test` runs type checking, focused tests, file-size enforcement, release verification, and the benchmark regression floor.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the clone-to-verified-change workflow and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. `npm test` runs required checks, while `npm run coverage` emits line, branch, function, and statement metrics and enforces documented floors.
 
 ## License
 

@@ -23,15 +23,18 @@ function countMatches(value: string, pattern: RegExp): number {
 }
 
 function hasBoundedOutput(command: string): boolean {
-	return /\|\s*(head|tail|sed\s+-n|awk\s+)/.test(command) || /--stat\b/.test(command);
+	return /\|\s*(head|tail|sed\s+-n|awk\s+)/i.test(command)
+		|| /--stat\b/i.test(command)
+		|| /\bSelect-Object\s+-(?:First|Last)\s+\d+/i.test(command)
+		|| /\bGet-Content\b[^|;&]*(?:-TotalCount|-Tail)\s+\d+/i.test(command);
 }
 
 function hasSearchLimit(command: string): boolean {
-	return /(^|\s)(-m\s*\d+|--max-count(?:=|\s+)\d+|--count\b|--files\b)/.test(command);
+	return /(^|\s)(-m\s*\d+|--max-count(?:=|\s+)\d+|--count\b|--files\b)/i.test(command);
 }
 
 function hasUnboundedFileRead(command: string): boolean {
-	return /\b(cat|type)\s+(?!<<)[^|;&]+/.test(command);
+	return /\b(cat|type|Get-Content|gc)\b\s+(?!<<)[^|;&]+/i.test(command);
 }
 
 export function analyzeBashCommand(
@@ -79,11 +82,11 @@ export function analyzeBashCommand(
 		});
 	}
 
-	if (/\b(find|rg|grep)\b/.test(command) && !hasBoundedOutput(command) && !hasSearchLimit(command)) {
+	if (/\b(find|rg|grep|findstr|Select-String)\b/i.test(command) && !hasBoundedOutput(command) && !hasSearchLimit(command)) {
 		risks.push({
 			severity: "info",
 			code: "search-output-budget",
-			message: "Search command has no explicit output bound; consider head/sed or a result limit.",
+			message: "Search command has no explicit output bound; consider head/sed, Select-Object, or a result limit.",
 		});
 	}
 

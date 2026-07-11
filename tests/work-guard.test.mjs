@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import extension from "../extensions/index.ts";
+import { riskFixtures, unsupportedCompositionFixtures } from "./fixtures/command-risk-fixtures.mjs";
 
 async function createHarness(config = {}) {
   let toolCallHandler;
@@ -38,9 +39,13 @@ async function createHarness(config = {}) {
     },
   };
 
+  async function runToolCall(toolName, input) {
+    return toolCallHandler({ toolName, input }, ctx);
+  }
+
   async function runCommand(command) {
     const input = { command };
-    const result = await toolCallHandler({ toolName: "bash", input }, ctx);
+    const result = await runToolCall("bash", input);
     return { result, input };
   }
 
@@ -55,7 +60,7 @@ async function createHarness(config = {}) {
     return content.trim().split("\n").map((line) => JSON.parse(line));
   }
 
-  return { runCommand, runSlashCommand, readMetrics, notifications, widgets, cwd };
+  return { runCommand, runToolCall, runSlashCommand, readMetrics, notifications, widgets, cwd };
 }
 
 test("blocks unbounded git diff with retry guidance", async () => {
@@ -186,4 +191,82 @@ test("/work-guard config surfaces invalid overrides as warnings", async () => {
   assert.ok(lines.includes("diagnostics: 2"));
   assert.ok(lines.some((line) => line.includes("unknown option `typoOption`")));
   assert.equal(notifications.at(-1)?.type, "warning");
+});
+
+for (const fixture of riskFixtures) {
+  test(`${fixture.name} has focused mode and bounded-output regression coverage`, async () => {
+    for (const [mode, expected] of Object.entries(fixture.expectationByMode)) {
+      assert.equal(fixture.classificationByMode[mode].falsePositive, false);
+      assert.equal(fixture.classificationByMode[mode].falseNegative, false);
+      const harness = await createHarness({ mode });
+      const risky = await harness.runCommand(fixture.risky);
+      assert.equal(risky.result?.block === true ? "block" : "warn", expected, `${fixture.name} in ${mode}`);
+      if (expected === "block") assert.match(risky.result.reason, /Retry|Adjust|explicit bound/);
+      assert.equal((await harness.runCommand(fixture.bounded)).result, undefined, `${fixture.name} bounded form`);
+    }
+  });
+}
+
+test("cross-shell fixture auto-fix expectations are explicit and safe", async () => {
+  for (const fixture of riskFixtures) {
+    const { runCommand } = await createHarness({ autoFix: true });
+    const { result, input } = await runCommand(fixture.risky);
+    if (fixture.autoFix === "changed") {
+      assert.equal(result, undefined, fixture.name);
+      assert.notEqual(input.command, fixture.risky, fixture.name);
+    } else {
+      assert.equal(result?.block, true, fixture.name);
+      assert.equal(input.command, fixture.risky, fixture.name);
+    }
+  }
+});
+
+test("unsupported shell compositions are blocked without unsafe auto-fix", async () => {
+  for (const fixture of unsupportedCompositionFixtures) {
+    const { runCommand } = await createHarness({ autoFix: true });
+    const { result, input } = await runCommand(fixture.command);
+    assert.equal(result?.block, true, `${fixture.name} should remain blocked`);
+    assert.equal(input.command, fixture.command, `${fixture.name} must remain unchanged`);
+    assert.match(result.reason, /Retry|explicit bound/);
+  }
+});
+
+test("non-Bash tool calls bypass command interception", async () => {
+  const { runToolCall, notifications } = await createHarness();
+  assert.equal(await runToolCall("read", { path: "README.md" }), undefined);
+  assert.equal(await runToolCall("write", { path: "out", content: "git diff" }), undefined);
+  assert.equal(notifications.length, 0);
+});
+
+test("metric-write failure never interrupts command enforcement and is reported", async () => {
+  const { cwd, runCommand, runSlashCommand, widgets } = await createHarness();
+  await writeFile(path.join(cwd, ".rpiv"), "not-a-directory", "utf8");
+  const { result } = await runCommand("git diff");
+  assert.equal(result?.block, true);
+  await runSlashCommand("work-budget");
+  const lines = widgets.at(-1)?.lines ?? [];
+  assert.ok(lines.some((line) => line.startsWith("metrics last write error:") && !line.endsWith("none")));
+});
+
+test("metric retention rotates only complete JSON Lines at the byte threshold", async () => {
+  const { cwd, runCommand, runSlashCommand, widgets } = await createHarness({ metricsMaxBytes: 500 });
+  await Promise.all(Array.from({ length: 12 }, (_, index) => runCommand(index % 2 === 0 ? "git diff" : "cat README.md")));
+  const dir = path.join(cwd, ".rpiv", "artifacts", "work-guard");
+  for (const file of ["events.jsonl", "events.previous.jsonl"]) {
+    const content = await readFile(path.join(dir, file), "utf8");
+    for (const line of content.trim().split("\n")) assert.doesNotThrow(() => JSON.parse(line));
+    assert.ok(Buffer.byteLength(content) <= 500);
+    assert.equal(content.includes("git diff"), false);
+  }
+  await runSlashCommand("work-budget");
+  assert.ok((widgets.at(-1)?.lines ?? []).some((line) => line.includes("one previous valid JSONL file retained")));
+});
+
+test("disabled metrics create no event file and status reports disabled", async () => {
+  const { cwd, runCommand, runSlashCommand, widgets } = await createHarness({ metricsEnabled: false });
+  assert.equal((await runCommand("git diff")).result?.block, true);
+  const eventPath = path.join(cwd, ".rpiv", "artifacts", "work-guard", "events.jsonl");
+  await assert.rejects(readFile(eventPath, "utf8"), { code: "ENOENT" });
+  await runSlashCommand("work-budget");
+  assert.ok((widgets.at(-1)?.lines ?? []).includes("metrics: disabled"));
 });

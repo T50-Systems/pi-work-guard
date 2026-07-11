@@ -1,0 +1,57 @@
+name: Verify tag and create GitHub release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify reviewed tag and release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify tag, package version, and changelog
+        run: npm run verify:release -- --tag "$GITHUB_REF_NAME"
+
+      - name: Run complete test suite
+        run: npm test
+
+      - name: Audit high-severity dependency vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Verify package contents without publishing
+        run: npm pack --dry-run
+
+      - name: Extract reviewed changelog notes
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+          fi

@@ -28,11 +28,11 @@ pi-work-guard reads:
 - project overrides at `.pi/work-guard.json`;
 - Git metadata and tracked source files for repository reports.
 
-It writes local metrics and checkpoints under `.rpiv/artifacts/`. Current metrics deliberately omit command text and retain only risk metadata such as action, mode, risk codes, command length, timestamp, and working directory. These files are gitignored, but users should still treat local artifacts as internal operational data. Older versions may have persisted command text; inspect or delete old `.rpiv/artifacts/work-guard/events.jsonl` files if commands may have contained secrets.
+It writes local metrics and checkpoints under `.rpiv/artifacts/`. Metrics deliberately omit command text and retain only risk metadata. The active event file has a default 1 MiB budget, rotates only at complete JSONL boundaries, and retains one previous file; both current and previous files remain internal operational data. Set `metricsEnabled: false` where even minimized local telemetry is inappropriate.
 
 ## Dependency and CI controls
 
 - The lockfile is installed with `npm ci` in CI.
-- CI runs type checks, tests, file-size enforcement, and `npm audit --audit-level=high`.
+- CI runs type checks, tests, coverage floors, file-size enforcement, and `npm audit --audit-level=high`.
 - Dependabot checks npm and GitHub Actions dependencies weekly.
-- GitHub Actions use read-only repository permissions unless a future reviewed workflow explicitly requires more.
+- Pull-request CI is read-only and credential-free. The tag-only release workflow has only `contents: write`, verifies the exact version/changelog first, and never publishes to npm.
