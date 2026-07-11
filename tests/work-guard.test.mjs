@@ -136,16 +136,30 @@ test("warn mode records but does not block", async () => {
   assert.equal((await readMetrics()).at(-1).action, "warn");
 });
 
-test("autoFix mutates eligible risky commands instead of blocking", async () => {
+test("autoFix mutates eligible risky commands without logging command text", async () => {
   const { runCommand, readMetrics } = await createHarness({ autoFix: true, autoFixLineLimit: 50 });
+  const originalCommand = "rg SUPER_SECRET_VALUE";
 
-  const { result, input } = await runCommand("rg TODO");
+  const { result, input } = await runCommand(originalCommand);
 
   assert.equal(result, undefined);
-  assert.equal(input.command, "rg TODO | head -50");
+  assert.equal(input.command, `${originalCommand} | head -50`);
   const metric = (await readMetrics()).at(-1);
   assert.equal(metric.action, "auto-fix");
-  assert.equal(metric.finalCommand, "rg TODO | head -50");
+  assert.equal(metric.commandLength, originalCommand.length);
+  assert.equal(metric.originalCommand, undefined);
+  assert.equal(metric.finalCommand, undefined);
+});
+
+test("block metrics omit potentially sensitive command text", async () => {
+  const { runCommand, readMetrics } = await createHarness();
+
+  await runCommand("grep API_TOKEN=secret-value .env");
+
+  const metric = (await readMetrics()).at(-1);
+  assert.equal(metric.action, "block");
+  assert.equal(metric.originalCommand, undefined);
+  assert.equal(JSON.stringify(metric).includes("secret-value"), false);
 });
 
 test("/work-guard config displays active config and metrics path", async () => {

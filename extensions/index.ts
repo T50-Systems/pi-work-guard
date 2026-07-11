@@ -28,8 +28,6 @@ interface WorkGuardMetric {
 	mode: WorkGuardMode;
 	riskCodes: string[];
 	commandLength: number;
-	originalCommand?: string;
-	finalCommand?: string;
 }
 
 const DEFAULT_CONFIG: WorkGuardConfig = {
@@ -198,8 +196,6 @@ export default function (pi: ExtensionAPI) {
 					mode: config.mode,
 					riskCodes,
 					commandLength: originalCommand.length,
-					originalCommand,
-					finalCommand: fixedCommand,
 				});
 				return;
 			}
@@ -215,7 +211,6 @@ export default function (pi: ExtensionAPI) {
 				mode: config.mode,
 				riskCodes,
 				commandLength: originalCommand.length,
-				originalCommand,
 			});
 			return { block: true, reason: `pi-work-guard: ${summary} ${guidance}` };
 		}
@@ -228,7 +223,6 @@ export default function (pi: ExtensionAPI) {
 			mode: config.mode,
 			riskCodes,
 			commandLength: originalCommand.length,
-			originalCommand,
 		});
 	});
 
