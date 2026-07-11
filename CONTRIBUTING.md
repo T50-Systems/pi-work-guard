@@ -32,15 +32,16 @@ Use a conventional type such as `docs/`, `fix/`, `feat/`, `test/`, or `chore/`. 
 
 | Command | Purpose |
 | --- | --- |
-| `npm run typecheck` | Type-check extension and source TypeScript without emitting files. |
+| `npm run typecheck` / `npm run build` | Type-check extension and source TypeScript without emitting files. |
 | `npm run test:unit` | Run the Node.js unit/integration harness. |
+| `npm run coverage` | Emit text/LCOV/JSON metrics and enforce global plus critical-module floors. |
 | `npm run check:file-size` | Enforce source file line budgets. |
-| `npm run verify:release` | Check version, changelog, and package-content consistency. |
-| `npm run benchmark:verify` | Run the deterministic classifier regression budget. |
+| `npm run verify:release` | Check version, changelog, and package-content consistency; `-- --tag vX.Y.Z` also checks an exact tag. |
+| `npm run benchmark:verify` | Run the expanded deterministic shell-classifier regression budget. |
 | `npm test` | Run every required repository check in CI order. |
 | `npm audit --audit-level=high` | Check production and development dependencies for high/critical advisories. |
 
-This package is loaded by Pi directly from TypeScript, so there is no separate build step. The repository currently has no standalone lint command; strict TypeScript and tests are the required static and behavioral checks.
+This package is loaded by Pi directly from TypeScript, so `npm run build` is a no-emit compilation gate rather than an artifact build. Coverage floors are global lines/statements 75%, branches 65%, functions 75%; critical-module floors are encoded in `scripts/verify-coverage.mjs` and intentionally conservative.
 
 ## Interactive smoke test
 
@@ -61,7 +62,7 @@ Use a disposable repository for commands that intentionally exercise blocking be
 
 ## Test fixtures and temporary files
 
-Tests create isolated temporary directories under the operating system temp directory. They do not require checked-in fixtures. Runtime events and checkpoints under `.rpiv/artifacts/` are local artifacts and must not be committed.
+Tests create isolated temporary directories and repositories under the operating system temp directory. Shell-policy fixtures live in `tests/fixtures/command-risk-fixtures.mjs` and are also consumed by the benchmark. Runtime events and checkpoints under `.rpiv/artifacts/` are local artifacts and must not be committed.
 
 ## Security and privacy
 

@@ -34,5 +34,17 @@ jobs:
       - name: Type-check, test, and enforce file budgets
         run: npm test
 
+      - name: Measure and enforce test coverage
+        run: npm run coverage
+
+      - name: Publish coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node-22
+          path: coverage/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Audit high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
