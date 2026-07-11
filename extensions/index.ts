@@ -1,9 +1,8 @@
-import { appendFile, mkdir } from "node:fs/promises";
-import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { analyzeBashCommand, highestSeverity, type CommandRisk } from "../src/command-risk.ts";
+import { getMetricStatus, metricStatusLines, recordMetric } from "../src/event-log.ts";
 import { buildGuardReport, formatGuardReport, writeCheckpoint } from "../src/repo-guard.ts";
-import { configLines, loadConfig, type WorkGuardConfig, type WorkGuardMode } from "../src/work-guard-config.ts";
+import { configLines, loadConfig, type WorkGuardConfig } from "../src/work-guard-config.ts";
 
 type WorkPhase = { name: string; startedAt: string; notes: string[] } | null;
 
@@ -11,14 +10,6 @@ interface BashInput {
 	command: string;
 }
 
-interface WorkGuardMetric {
-	timestamp: string;
-	cwd: string;
-	action: "warn" | "block" | "auto-fix";
-	mode: WorkGuardMode;
-	riskCodes: string[];
-	commandLength: number;
-}
 
 
 function notify(ctx: { hasUI?: boolean; ui: { notify(message: string, type?: "info" | "warning" | "error"): void } }, message: string, type: "info" | "warning" | "error" = "info") {
@@ -64,27 +55,17 @@ function appendOutputBound(command: string, lineLimit: number): string {
 	return `${command} | head -${lineLimit}`;
 }
 
+function hasUnsupportedAutoFixComposition(command: string): boolean {
+	return /(?:\r|\n|&&|\|\||[|;<>]|\$\(|`)/.test(command) || /\b(?:powershell|pwsh|cmd(?:\.exe)?)\b/i.test(command);
+}
+
 function autoFixCommand(command: string, risks: CommandRisk[], config: WorkGuardConfig): string | undefined {
-	if (risks.some((risk) => risk.code === "command-too-large")) return undefined;
+	if (risks.some((risk) => risk.code === "command-too-large") || hasUnsupportedAutoFixComposition(command)) return undefined;
 	if (risks.some((risk) => risk.code === "unbounded-git-diff")) return `${command} --stat`;
 	if (risks.some((risk) => risk.code === "possibly-unbounded-file-read" || risk.code === "search-output-budget")) {
 		return appendOutputBound(command, config.autoFixLineLimit);
 	}
 	return undefined;
-}
-
-function metricsDir(cwd: string): string {
-	return path.join(cwd, ".rpiv", "artifacts", "work-guard");
-}
-
-async function recordMetric(cwd: string, metric: WorkGuardMetric): Promise<void> {
-	try {
-		const dir = metricsDir(cwd);
-		await mkdir(dir, { recursive: true });
-		await appendFile(path.join(dir, "events.jsonl"), `${JSON.stringify(metric)}\n`, "utf8");
-	} catch {
-		// Guard metrics must never break tool execution.
-	}
 }
 
 
@@ -126,7 +107,7 @@ export default function (pi: ExtensionAPI) {
 					mode: config.mode,
 					riskCodes,
 					commandLength: originalCommand.length,
-				});
+				}, config);
 				return;
 			}
 		}
@@ -141,7 +122,7 @@ export default function (pi: ExtensionAPI) {
 				mode: config.mode,
 				riskCodes,
 				commandLength: originalCommand.length,
-			});
+			}, config);
 			return { block: true, reason: `pi-work-guard: ${summary} ${guidance}` };
 		}
 
@@ -153,7 +134,7 @@ export default function (pi: ExtensionAPI) {
 			mode: config.mode,
 			riskCodes,
 			commandLength: originalCommand.length,
-		});
+		}, config);
 	});
 
 	pi.registerCommand("work-guard", {
@@ -162,7 +143,8 @@ export default function (pi: ExtensionAPI) {
 			const action = args.trim();
 			if (action === "config") {
 				const resolution = await loadConfig(ctx.cwd);
-				ctx.ui.setWidget("pi-work-guard", configLines(resolution, ctx.cwd), { placement: "belowEditor" });
+				const metricStatus = await getMetricStatus(ctx.cwd, resolution.config);
+				ctx.ui.setWidget("pi-work-guard", [...configLines(resolution, ctx.cwd), ...metricStatusLines(metricStatus)], { placement: "belowEditor" });
 				notify(
 					ctx,
 					resolution.diagnostics.length === 0
@@ -211,13 +193,15 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("work-budget", {
 		description: "Show current WorkGuard phase and warning budget",
 		handler: async (_args, ctx) => {
+			const { config } = await loadConfig(ctx.cwd);
+			const metricStatus = await getMetricStatus(ctx.cwd, config);
 			const lines = [
 				"pi-work-guard budget",
 				`phase: ${phase ? `${phase.name} since ${phase.startedAt}` : "none"}`,
 				`bash risk warnings this session: ${warningsThisSession}`,
 				`bash commands blocked this session: ${blockedThisSession}`,
 				`bash commands auto-fixed this session: ${autoFixedThisSession}`,
-				`metrics: ${path.join(metricsDir(ctx.cwd), "events.jsonl")}`,
+				...metricStatusLines(metricStatus),
 				"recommendation: bounded reads/searches are enforced; keep phases small, validate after each phase, checkpoint before broad refactors.",
 			];
 			ctx.ui.setWidget("pi-work-guard", lines, { placement: "belowEditor" });

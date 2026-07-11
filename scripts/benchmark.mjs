@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { performance } from "node:perf_hooks";
 import { analyzeBashCommand } from "../src/command-risk.ts";
+import { riskFixtures, unsupportedCompositionFixtures } from "../tests/fixtures/command-risk-fixtures.mjs";
 
 const args = new Set(process.argv.slice(2));
 const iterationsArg = process.argv.find((arg) => arg.startsWith("--iterations="));
@@ -13,16 +14,10 @@ if (!Number.isSafeInteger(iterations) || iterations < 1_000) {
 }
 
 const commands = [
-  "git diff",
-  "git diff --stat",
-  "rg TODO src",
-  "rg --max-count 20 TODO src",
-  "cat package.json",
-  "cat package.json | head -40",
-  "find . -type f",
-  "grep -m 10 warning events.jsonl",
-  `${"x".repeat(8_001)}`,
-  "printf safe",
+	...riskFixtures.flatMap((fixture) => [fixture.risky, fixture.bounded]),
+	...unsupportedCompositionFixtures.map((fixture) => fixture.command),
+	`${"x".repeat(8_001)}`,
+	"printf safe",
 ];
 
 function run(count) {

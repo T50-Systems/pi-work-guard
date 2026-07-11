@@ -4,5 +4,7 @@
   "autoFixLineLimit": 200,
   "blockGitDiff": true,
   "blockFileRead": true,
-  "blockSearch": true
+  "blockSearch": true,
+  "metricsEnabled": true,
+  "metricsMaxBytes": 1048576
 }

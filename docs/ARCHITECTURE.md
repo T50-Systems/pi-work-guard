@@ -13,9 +13,10 @@ Pi Work Guard is a guardrail, not a security sandbox. Pi and allowed commands re
 | `extensions/index.ts` | Pi event/command registration, session counters, widgets, notifications, metric dispatch | Classification regexes, config parsing policy, Git/file algorithms |
 | `src/command-risk.ts` | Pure command classification and severity policy | Filesystem, Pi UI, execution, persistence |
 | `src/work-guard-config.ts` | Defaults, precedence, validation, source/diagnostic reporting | Pi UI, process lifecycle, command decisions |
+| `src/event-log.ts` | Privacy-minimized append, byte-boundary rotation, and status/error reporting | Command decisions, raw command text |
 | `src/repo-guard.ts` | Bounded Git inspection, file-size report, checkpoint rendering | Command interception and config resolution |
-| `scripts/` | Contributor/CI checks, release verification, reproducible benchmark | Runtime extension behavior |
-| `tests/` | Policy, integration-harness, configuration, privacy, and workflow contracts | Production state |
+| `scripts/` | Contributor/CI checks, coverage/release verification, reproducible benchmark | Runtime extension behavior |
+| `tests/` | Policy, integration-harness, repository, configuration, privacy, release, and workflow contracts | Production state |
 
 ## Tool-call control flow
 
@@ -29,15 +30,15 @@ Pi tool_call
   -> notify UI and append privacy-minimized metric when a risk is observed
 ```
 
-Configuration read/parse failures never disable the guard. Resolution keeps lower-precedence valid values and exposes diagnostics through `/work-guard config`. Metric write failures never break tool execution because metrics are auxiliary.
+Configuration read/parse failures never disable the guard. Resolution keeps lower-precedence valid values and exposes diagnostics through `/work-guard config`. Metric writes and rotation are best-effort; failures never break tool execution and surface as privacy-safe status.
 
 ## Command and persistence flow
 
 - `/work-guard`: bounded Git status/diff-stat and tracked source file-size checks.
-- `/work-guard config`: resolved values, ordered sources, validation diagnostics, metrics path.
+- `/work-guard config`: resolved values, ordered sources, validation diagnostics, and metric retention/error state.
 - `/work-checkpoint`: a timestamped Markdown snapshot under `.rpiv/artifacts/work-checkpoints/`.
-- `/work-phase` and `/work-budget`: in-memory session state; restarting Pi clears counters and phase.
-- Risk events: JSON Lines under `.rpiv/artifacts/work-guard/events.jsonl`; no raw command text.
+- `/work-phase` and `/work-budget`: in-memory session state; budget output also reads metric retention status.
+- Risk events: complete JSON Lines under `.rpiv/artifacts/work-guard/events.jsonl`; byte-boundary rotation retains `events.previous.jsonl` and no raw command text.
 
 Generated artifacts are local, gitignored, and outside the package's durable API.
 

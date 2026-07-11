@@ -34,6 +34,8 @@ test("config precedence is defaults, global, project, then environment", async (
     blockFileRead: true,
     blockSearch: false,
     autoFixLineLimit: 25,
+    metricsEnabled: true,
+    metricsMaxBytes: 1_048_576,
   });
   assert.equal(resolution.diagnostics.length, 0);
   assert.deepEqual(resolution.sources.map((source) => path.basename(source)), [
@@ -48,7 +50,7 @@ test("invalid project values retain safe lower-precedence values and emit diagno
   const { home, cwd } = await fixture();
   await writeFile(
     path.join(cwd, ".pi", "work-guard.json"),
-    JSON.stringify({ mode: "dangerous", autoFix: "yes", autoFixLineLimit: 0, typoOption: true }),
+    JSON.stringify({ mode: "dangerous", autoFix: "yes", autoFixLineLimit: 0, metricsEnabled: "yes", metricsMaxBytes: 0, typoOption: true }),
   );
 
   const resolution = await loadConfig(cwd, { home, env: {} });
@@ -56,16 +58,20 @@ test("invalid project values retain safe lower-precedence values and emit diagno
   assert.equal(resolution.config.mode, "block");
   assert.equal(resolution.config.autoFix, false);
   assert.equal(resolution.config.autoFixLineLimit, 200);
+  assert.equal(resolution.config.metricsEnabled, true);
+  assert.equal(resolution.config.metricsMaxBytes, 1_048_576);
   assert.deepEqual(
     resolution.diagnostics.map(({ message }) => message),
     [
       "unknown option `typoOption` ignored",
       "mode must be off, warn, block, or strict; using lower-precedence value",
       "autoFix must be boolean; using lower-precedence value",
+      "metricsEnabled must be boolean; using lower-precedence value",
       "autoFixLineLimit must be a positive integer; using lower-precedence value",
+      "metricsMaxBytes must be a positive integer; using lower-precedence value",
     ],
   );
-  assert.ok(configLines(resolution, cwd).some((line) => line.includes("diagnostics: 4")));
+  assert.ok(configLines(resolution, cwd).some((line) => line.includes("diagnostics: 6")));
 });
 
 test("malformed project JSON is reported without disabling the guard", async () => {

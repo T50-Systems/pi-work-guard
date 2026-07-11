@@ -11,6 +11,8 @@ export interface WorkGuardConfig {
 	blockFileRead: boolean;
 	blockSearch: boolean;
 	autoFixLineLimit: number;
+	metricsEnabled: boolean;
+	metricsMaxBytes: number;
 }
 
 export interface ConfigDiagnostic {
@@ -36,6 +38,8 @@ export const DEFAULT_CONFIG: WorkGuardConfig = {
 	blockFileRead: true,
 	blockSearch: true,
 	autoFixLineLimit: 200,
+	metricsEnabled: true,
+	metricsMaxBytes: 1_048_576,
 };
 
 const CONFIG_KEYS = new Set<keyof WorkGuardConfig>([
@@ -45,6 +49,8 @@ const CONFIG_KEYS = new Set<keyof WorkGuardConfig>([
 	"blockFileRead",
 	"blockSearch",
 	"autoFixLineLimit",
+	"metricsEnabled",
+	"metricsMaxBytes",
 ]);
 
 function normalizeMode(value: unknown): WorkGuardMode | undefined {
@@ -80,15 +86,16 @@ function mergeConfig(
 		else diagnostics.push({ source, message: "mode must be off, warn, block, or strict; using lower-precedence value" });
 	}
 
-	for (const key of ["autoFix", "blockGitDiff", "blockFileRead", "blockSearch"] as const) {
+	for (const key of ["autoFix", "blockGitDiff", "blockFileRead", "blockSearch", "metricsEnabled"] as const) {
 		if (value[key] === undefined) continue;
 		if (typeof value[key] === "boolean") next[key] = value[key];
 		else diagnostics.push({ source, message: `${key} must be boolean; using lower-precedence value` });
 	}
 
-	if (value.autoFixLineLimit !== undefined) {
-		if (isPositiveInteger(value.autoFixLineLimit)) next.autoFixLineLimit = value.autoFixLineLimit;
-		else diagnostics.push({ source, message: "autoFixLineLimit must be a positive integer; using lower-precedence value" });
+	for (const key of ["autoFixLineLimit", "metricsMaxBytes"] as const) {
+		if (value[key] === undefined) continue;
+		if (isPositiveInteger(value[key])) next[key] = value[key];
+		else diagnostics.push({ source, message: `${key} must be a positive integer; using lower-precedence value` });
 	}
 	return next;
 }
@@ -145,9 +152,10 @@ export function configLines(resolution: ConfigResolution, cwd: string): string[]
 		`blockGitDiff: ${config.blockGitDiff}`,
 		`blockFileRead: ${config.blockFileRead}`,
 		`blockSearch: ${config.blockSearch}`,
+		`metricsEnabled: ${config.metricsEnabled}`,
+		`metricsMaxBytes: ${config.metricsMaxBytes}`,
 		`sources: ${sources.join(" -> ")}`,
 		`diagnostics: ${diagnostics.length === 0 ? "none" : diagnostics.length}`,
 		...diagnostics.map((diagnostic) => `- ${diagnostic.source}: ${diagnostic.message}`),
-		`metrics: ${path.join(cwd, ".rpiv", "artifacts", "work-guard", "events.jsonl")}`,
 	];
 }
