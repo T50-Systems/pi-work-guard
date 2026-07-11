@@ -27,6 +27,8 @@
     "src",
     "tests",
     "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
     "LICENSE"
   ],
   "peerDependencies": {
