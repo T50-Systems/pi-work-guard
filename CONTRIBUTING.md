@@ -35,7 +35,9 @@ Use a conventional type such as `docs/`, `fix/`, `feat/`, `test/`, or `chore/`. 
 | `npm run typecheck` | Type-check extension and source TypeScript without emitting files. |
 | `npm run test:unit` | Run the Node.js unit/integration harness. |
 | `npm run check:file-size` | Enforce source file line budgets. |
-| `npm test` | Run all required repository checks in CI order. |
+| `npm run verify:release` | Check version, changelog, and package-content consistency. |
+| `npm run benchmark:verify` | Run the deterministic classifier regression budget. |
+| `npm test` | Run every required repository check in CI order. |
 | `npm audit --audit-level=high` | Check production and development dependencies for high/critical advisories. |
 
 This package is loaded by Pi directly from TypeScript, so there is no separate build step. The repository currently has no standalone lint command; strict TypeScript and tests are the required static and behavioral checks.
@@ -50,7 +52,7 @@ pi -e .
 
 Then verify:
 
-1. `/work-guard config` displays the expected mode and paths.
+1. `/work-guard config` displays expected values and sources with `diagnostics: none`.
 2. `/work-guard` displays a repository report.
 3. An unbounded `git diff` is blocked in `block` mode.
 4. `git diff --stat` is allowed.

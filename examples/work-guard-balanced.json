@@ -1,0 +1,8 @@
+{
+  "mode": "block",
+  "autoFix": false,
+  "autoFixLineLimit": 200,
+  "blockGitDiff": true,
+  "blockFileRead": true,
+  "blockSearch": true
+}
