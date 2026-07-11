@@ -84,7 +84,7 @@ Global config can live under `workGuard` in `~/.pi/agent/settings.json`:
 
 Project overrides can live at `.pi/work-guard.json` with the same shape. `PI_WORK_GUARD_MODE=off|warn|block|strict` overrides only the mode for one process.
 
-Configuration precedence, from lowest to highest, is defaults, global settings, project override, then `PI_WORK_GUARD_MODE`. Invalid values fall back to the preceding valid value.
+Configuration precedence, from lowest to highest, is defaults, global settings, project override, then `PI_WORK_GUARD_MODE`. Invalid values retain the preceding valid value and appear as actionable diagnostics in `/work-guard config`. See [configuration, recovery, and observability](docs/OPERATIONS.md) and the [reviewed examples](examples/).
 
 Modes:
 
@@ -93,7 +93,7 @@ Modes:
 - `block`: block configured unbounded-output risks
 - `strict`: also block warning-severity risks such as oversized commands/heredoc batches
 
-Run `/work-guard config` to inspect the resolved config and metrics path. If `autoFix` is enabled, eligible commands are rewritten in place instead of blocked.
+Run `/work-guard config` to inspect resolved values, source precedence, diagnostics, and the metrics path. If `autoFix` is enabled, eligible commands are rewritten in place instead of blocked.
 
 ## Commands
 
@@ -118,9 +118,19 @@ Metrics include timestamps, working directory, action, mode, risk codes, and com
 - **Need to recover immediately:** start one process with `PI_WORK_GUARD_MODE=off pi`; avoid disabling the guard globally unless necessary.
 - **No repository report data:** `/work-guard` depends on Git and returns empty Git sections outside a repository.
 
+## Project documentation
+
+- [Product vision and success measures](docs/PRODUCT.md)
+- [Architecture and module boundaries](docs/ARCHITECTURE.md)
+- [Configuration, recovery, and observability](docs/OPERATIONS.md)
+- [Examples and recipes](docs/EXAMPLES.md)
+- [Performance baseline](docs/PERFORMANCE.md)
+- [Release process](docs/RELEASING.md)
+- [Roadmap milestones](ROADMAP.md) and [changelog](CHANGELOG.md)
+
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the clone-to-verified-change workflow and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the clone-to-verified-change workflow and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. `npm test` runs type checking, focused tests, file-size enforcement, release verification, and the benchmark regression floor.
 
 ## License
 

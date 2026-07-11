@@ -162,13 +162,28 @@ test("block metrics omit potentially sensitive command text", async () => {
   assert.equal(JSON.stringify(metric).includes("secret-value"), false);
 });
 
-test("/work-guard config displays active config and metrics path", async () => {
-  const { runSlashCommand, widgets, cwd } = await createHarness({ mode: "strict", autoFix: true });
+test("/work-guard config displays resolved sources and no diagnostics", async () => {
+  const { runSlashCommand, widgets, notifications, cwd } = await createHarness({ mode: "strict", autoFix: true });
 
   await runSlashCommand("work-guard", "config");
 
   const lines = widgets.at(-1)?.lines ?? [];
   assert.ok(lines.includes("mode: strict"));
   assert.ok(lines.includes("autoFix: true"));
+  assert.ok(lines.some((line) => line.startsWith("sources: built-in defaults")));
+  assert.ok(lines.includes("diagnostics: none"));
   assert.ok(lines.some((line) => line.includes(path.join(cwd, ".rpiv", "artifacts", "work-guard", "events.jsonl"))));
+  assert.equal(notifications.at(-1)?.type, "info");
+});
+
+test("/work-guard config surfaces invalid overrides as warnings", async () => {
+  const { runSlashCommand, widgets, notifications } = await createHarness({ mode: "blok", typoOption: true });
+
+  await runSlashCommand("work-guard", "config");
+
+  const lines = widgets.at(-1)?.lines ?? [];
+  assert.ok(lines.includes("mode: block"));
+  assert.ok(lines.includes("diagnostics: 2"));
+  assert.ok(lines.some((line) => line.includes("unknown option `typoOption`")));
+  assert.equal(notifications.at(-1)?.type, "warning");
 });

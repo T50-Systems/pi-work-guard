@@ -1,21 +1,11 @@
-import { appendFile, mkdir, readFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { analyzeBashCommand, highestSeverity, type CommandRisk } from "../src/command-risk.ts";
 import { buildGuardReport, formatGuardReport, writeCheckpoint } from "../src/repo-guard.ts";
+import { configLines, loadConfig, type WorkGuardConfig, type WorkGuardMode } from "../src/work-guard-config.ts";
 
 type WorkPhase = { name: string; startedAt: string; notes: string[] } | null;
-type WorkGuardMode = "off" | "warn" | "block" | "strict";
-
-interface WorkGuardConfig {
-	mode: WorkGuardMode;
-	autoFix: boolean;
-	blockGitDiff: boolean;
-	blockFileRead: boolean;
-	blockSearch: boolean;
-	autoFixLineLimit: number;
-}
 
 interface BashInput {
 	command: string;
@@ -30,14 +20,6 @@ interface WorkGuardMetric {
 	commandLength: number;
 }
 
-const DEFAULT_CONFIG: WorkGuardConfig = {
-	mode: "block",
-	autoFix: false,
-	blockGitDiff: true,
-	blockFileRead: true,
-	blockSearch: true,
-	autoFixLineLimit: 200,
-};
 
 function notify(ctx: { hasUI?: boolean; ui: { notify(message: string, type?: "info" | "warning" | "error"): void } }, message: string, type: "info" | "warning" | "error" = "info") {
 	if (ctx.hasUI !== false) ctx.ui.notify(message, type);
@@ -53,45 +35,6 @@ function getBashInput(event: unknown): BashInput | undefined {
 	return typeof command === "string" ? (input as BashInput) : undefined;
 }
 
-function normalizeMode(value: unknown): WorkGuardMode | undefined {
-	return value === "off" || value === "warn" || value === "block" || value === "strict" ? value : undefined;
-}
-
-function positiveInteger(value: unknown, fallback: number): number {
-	return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : fallback;
-}
-
-function mergeConfig(base: WorkGuardConfig, candidate: unknown): WorkGuardConfig {
-	if (!candidate || typeof candidate !== "object") return base;
-	const value = candidate as Partial<Record<keyof WorkGuardConfig, unknown>>;
-	return {
-		mode: normalizeMode(value.mode) ?? base.mode,
-		autoFix: typeof value.autoFix === "boolean" ? value.autoFix : base.autoFix,
-		blockGitDiff: typeof value.blockGitDiff === "boolean" ? value.blockGitDiff : base.blockGitDiff,
-		blockFileRead: typeof value.blockFileRead === "boolean" ? value.blockFileRead : base.blockFileRead,
-		blockSearch: typeof value.blockSearch === "boolean" ? value.blockSearch : base.blockSearch,
-		autoFixLineLimit: positiveInteger(value.autoFixLineLimit, base.autoFixLineLimit),
-	};
-}
-
-async function readJson(filePath: string): Promise<unknown> {
-	try {
-		return JSON.parse(await readFile(filePath, "utf8"));
-	} catch {
-		return undefined;
-	}
-}
-
-async function loadConfig(cwd: string): Promise<WorkGuardConfig> {
-	let config = { ...DEFAULT_CONFIG };
-	const settings = await readJson(path.join(homedir(), ".pi", "agent", "settings.json"));
-	if (settings && typeof settings === "object") {
-		config = mergeConfig(config, (settings as { workGuard?: unknown }).workGuard);
-	}
-	config = mergeConfig(config, await readJson(path.join(cwd, ".pi", "work-guard.json")));
-	config = mergeConfig(config, { mode: normalizeMode(process.env.PI_WORK_GUARD_MODE) });
-	return config;
-}
 
 function shouldBlockRisk(risk: CommandRisk, config: WorkGuardConfig): boolean {
 	if (risk.severity === "block") return true;
@@ -144,19 +87,6 @@ async function recordMetric(cwd: string, metric: WorkGuardMetric): Promise<void>
 	}
 }
 
-function configLines(config: WorkGuardConfig, cwd: string): string[] {
-	return [
-		"pi-work-guard config",
-		`mode: ${config.mode}`,
-		`autoFix: ${config.autoFix}`,
-		`autoFixLineLimit: ${config.autoFixLineLimit}`,
-		`blockGitDiff: ${config.blockGitDiff}`,
-		`blockFileRead: ${config.blockFileRead}`,
-		`blockSearch: ${config.blockSearch}`,
-		`project override: ${path.join(cwd, ".pi", "work-guard.json")}`,
-		`metrics: ${path.join(metricsDir(cwd), "events.jsonl")}`,
-	];
-}
 
 export default function (pi: ExtensionAPI) {
 	let phase: WorkPhase = null;
@@ -168,7 +98,7 @@ export default function (pi: ExtensionAPI) {
 		const input = getBashInput(event);
 		if (!input) return;
 
-		const config = await loadConfig(ctx.cwd);
+		const { config } = await loadConfig(ctx.cwd);
 		if (config.mode === "off") return;
 
 		const originalCommand = input.command;
@@ -231,9 +161,15 @@ export default function (pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const action = args.trim();
 			if (action === "config") {
-				const config = await loadConfig(ctx.cwd);
-				ctx.ui.setWidget("pi-work-guard", configLines(config, ctx.cwd), { placement: "belowEditor" });
-				notify(ctx, "WorkGuard config displayed.", "info");
+				const resolution = await loadConfig(ctx.cwd);
+				ctx.ui.setWidget("pi-work-guard", configLines(resolution, ctx.cwd), { placement: "belowEditor" });
+				notify(
+					ctx,
+					resolution.diagnostics.length === 0
+						? "WorkGuard config displayed. No diagnostics."
+						: `WorkGuard config has ${resolution.diagnostics.length} diagnostic(s); review the displayed sources.`,
+					resolution.diagnostics.length === 0 ? "info" : "warning",
+				);
 				return;
 			}
 
