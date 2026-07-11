@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+.rpiv/artifacts/work-guard/events.jsonl
+.rpiv/artifacts/work-checkpoints/
