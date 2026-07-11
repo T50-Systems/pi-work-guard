@@ -11,10 +11,15 @@ All notable changes are documented here using [Keep a Changelog](https://keepach
 - Configuration source and validation diagnostics, including safe fallback tests.
 - Release metadata verification for version, changelog, and package contents.
 - Contributor onboarding, CI validation, Dependabot, and security guidance.
+- Coverage reporting with enforced global and critical-module floors, direct repository/checkpoint/failure-path tests, and CI artifacts.
+- Cross-shell risk fixtures for POSIX, PowerShell, cmd.exe, and unsupported shell composition, shared with the benchmark.
+- Size-bounded privacy-preserving event-log rotation and retention/error status.
+- Tag-gated, least-privilege GitHub Release automation sourced from reviewed changelog notes.
 
 ### Changed
 
 - Risk metrics omit raw and rewritten command text to preserve the privacy contract.
+- Auto-fix now leaves pipelines, redirections, subshells, command chains, PowerShell, and cmd.exe forms unchanged.
 
 ## [0.2.0] - 2026-07-06
 

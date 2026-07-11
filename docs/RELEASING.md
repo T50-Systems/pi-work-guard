@@ -1,6 +1,6 @@
 # Release process
 
-Pi Work Guard uses Semantic Versioning and Keep a Changelog headings. Releases are maintainer-triggered; CI validates changes but does not publish automatically.
+Pi Work Guard uses Semantic Versioning and Keep a Changelog headings. Pull-request CI is credential-free. Pushing a reviewed `vX.Y.Z` tag triggers the tag-only GitHub release workflow; it verifies and packages but never publishes to npm.
 
 ## Prepare
 
@@ -21,12 +21,12 @@ npm audit --audit-level=high
 
 Review the dry-run package list for required source/docs and accidental artifacts or secrets.
 
-## Tag and publish
+## Tag and create the GitHub release
 
-After reviewed changes are merged and checks pass, create an annotated `vX.Y.Z` tag pointing to the release commit. Verify the tag version equals `package.json`, then create GitHub release notes from the matching changelog section. If distribution expands beyond GitHub installation, add a separately reviewed publishing procedure and least-privilege credentials; this repository does not currently define an npm publish step.
+After reviewed changes are merged and checks pass, create and push an annotated `vX.Y.Z` tag pointing to the release commit. `.github/workflows/release.yml` installs the lockfile, fails unless the tag exactly matches `package.json` and its dated changelog heading, runs `npm test`, performs the high-severity audit and package dry run, then creates or updates the GitHub Release from that reviewed changelog section. The job has only `contents: write`; there is no npm publish step or package-registry credential.
 
-## Upgrade and rollback
+## Retry and rollback
 
-Consumers should read the version's changelog, install the reviewed tag/commit, restart Pi, and run `/work-guard config` plus the quickstart smoke check. Roll back by reinstalling the previously reviewed tag. Configuration-only incompatibility can be isolated with a one-process `PI_WORK_GUARD_MODE`, but `off` should be temporary.
+If verification fails, do not move or reuse the failed tag. Delete the remote/local tag only when no GitHub Release was created and the tag is known to be unpublished, fix the release commit, then create a new reviewed tag. If a release object exists but its workflow was interrupted after verification, rerun the failed job; creation/update is idempotent for the same verified tag.
 
-Never retag a released version. Correct release metadata with a new patch release.
+Never retag a released version. Correct released code or metadata with a new patch version. Consumers roll back by reinstalling the previously reviewed tag, restarting Pi, and checking `/work-guard config`; a one-process `PI_WORK_GUARD_MODE` can isolate configuration incompatibility, but `off` should be temporary.
