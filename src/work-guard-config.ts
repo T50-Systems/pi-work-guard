@@ -13,6 +13,7 @@ export interface WorkGuardConfig {
 	autoFixLineLimit: number;
 	metricsEnabled: boolean;
 	metricsMaxBytes: number;
+	metricsMaxAgeDays: number | null;
 }
 
 export interface ConfigDiagnostic {
@@ -40,6 +41,7 @@ export const DEFAULT_CONFIG: WorkGuardConfig = {
 	autoFixLineLimit: 200,
 	metricsEnabled: true,
 	metricsMaxBytes: 1_048_576,
+	metricsMaxAgeDays: null,
 };
 
 const CONFIG_KEYS = new Set<keyof WorkGuardConfig>([
@@ -51,6 +53,7 @@ const CONFIG_KEYS = new Set<keyof WorkGuardConfig>([
 	"autoFixLineLimit",
 	"metricsEnabled",
 	"metricsMaxBytes",
+	"metricsMaxAgeDays",
 ]);
 
 function normalizeMode(value: unknown): WorkGuardMode | undefined {
@@ -96,6 +99,11 @@ function mergeConfig(
 		if (value[key] === undefined) continue;
 		if (isPositiveInteger(value[key])) next[key] = value[key];
 		else diagnostics.push({ source, message: `${key} must be a positive integer; using lower-precedence value` });
+	}
+
+	if (value.metricsMaxAgeDays !== undefined) {
+		if (value.metricsMaxAgeDays === null || isPositiveInteger(value.metricsMaxAgeDays)) next.metricsMaxAgeDays = value.metricsMaxAgeDays;
+		else diagnostics.push({ source, message: "metricsMaxAgeDays must be null or a positive integer; using lower-precedence value" });
 	}
 	return next;
 }
@@ -154,6 +162,7 @@ export function configLines(resolution: ConfigResolution, cwd: string): string[]
 		`blockSearch: ${config.blockSearch}`,
 		`metricsEnabled: ${config.metricsEnabled}`,
 		`metricsMaxBytes: ${config.metricsMaxBytes}`,
+		`metricsMaxAgeDays: ${config.metricsMaxAgeDays ?? "disabled"}`,
 		`sources: ${sources.join(" -> ")}`,
 		`diagnostics: ${diagnostics.length === 0 ? "none" : diagnostics.length}`,
 		...diagnostics.map((diagnostic) => `- ${diagnostic.source}: ${diagnostic.message}`),

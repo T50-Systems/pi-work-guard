@@ -18,11 +18,11 @@ test("config precedence is defaults, global, project, then environment", async (
   const { home, cwd } = await fixture();
   await writeFile(
     path.join(home, ".pi", "agent", "settings.json"),
-    JSON.stringify({ workGuard: { mode: "warn", autoFix: true, autoFixLineLimit: 75 } }),
+    JSON.stringify({ workGuard: { mode: "warn", autoFix: true, autoFixLineLimit: 75, metricsMaxAgeDays: 30 } }),
   );
   await writeFile(
     path.join(cwd, ".pi", "work-guard.json"),
-    JSON.stringify({ mode: "block", autoFixLineLimit: 25, blockSearch: false }),
+    JSON.stringify({ mode: "block", autoFixLineLimit: 25, blockSearch: false, metricsMaxAgeDays: 7 }),
   );
 
   const resolution = await loadConfig(cwd, { home, env: { PI_WORK_GUARD_MODE: "strict" } });
@@ -36,6 +36,7 @@ test("config precedence is defaults, global, project, then environment", async (
     autoFixLineLimit: 25,
     metricsEnabled: true,
     metricsMaxBytes: 1_048_576,
+    metricsMaxAgeDays: 7,
   });
   assert.equal(resolution.diagnostics.length, 0);
   assert.deepEqual(resolution.sources.map((source) => path.basename(source)), [
@@ -46,11 +47,25 @@ test("config precedence is defaults, global, project, then environment", async (
   ]);
 });
 
+test("null age retention disables an inherited maximum age", async () => {
+  const { home, cwd } = await fixture();
+  await writeFile(
+    path.join(home, ".pi", "agent", "settings.json"),
+    JSON.stringify({ workGuard: { metricsMaxAgeDays: 30 } }),
+  );
+  await writeFile(path.join(cwd, ".pi", "work-guard.json"), JSON.stringify({ metricsMaxAgeDays: null }));
+
+  const resolution = await loadConfig(cwd, { home, env: {} });
+
+  assert.equal(resolution.config.metricsMaxAgeDays, null);
+  assert.equal(resolution.diagnostics.length, 0);
+});
+
 test("invalid project values retain safe lower-precedence values and emit diagnostics", async () => {
   const { home, cwd } = await fixture();
   await writeFile(
     path.join(cwd, ".pi", "work-guard.json"),
-    JSON.stringify({ mode: "dangerous", autoFix: "yes", autoFixLineLimit: 0, metricsEnabled: "yes", metricsMaxBytes: 0, typoOption: true }),
+    JSON.stringify({ mode: "dangerous", autoFix: "yes", autoFixLineLimit: 0, metricsEnabled: "yes", metricsMaxBytes: 0, metricsMaxAgeDays: 0, typoOption: true }),
   );
 
   const resolution = await loadConfig(cwd, { home, env: {} });
@@ -60,6 +75,7 @@ test("invalid project values retain safe lower-precedence values and emit diagno
   assert.equal(resolution.config.autoFixLineLimit, 200);
   assert.equal(resolution.config.metricsEnabled, true);
   assert.equal(resolution.config.metricsMaxBytes, 1_048_576);
+  assert.equal(resolution.config.metricsMaxAgeDays, null);
   assert.deepEqual(
     resolution.diagnostics.map(({ message }) => message),
     [
@@ -69,9 +85,10 @@ test("invalid project values retain safe lower-precedence values and emit diagno
       "metricsEnabled must be boolean; using lower-precedence value",
       "autoFixLineLimit must be a positive integer; using lower-precedence value",
       "metricsMaxBytes must be a positive integer; using lower-precedence value",
+      "metricsMaxAgeDays must be null or a positive integer; using lower-precedence value",
     ],
   );
-  assert.ok(configLines(resolution, cwd).some((line) => line.includes("diagnostics: 6")));
+  assert.ok(configLines(resolution, cwd).some((line) => line.includes("diagnostics: 7")));
 });
 
 test("malformed project JSON is reported without disabling the guard", async () => {

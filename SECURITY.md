@@ -28,7 +28,7 @@ pi-work-guard reads:
 - project overrides at `.pi/work-guard.json`;
 - Git metadata and tracked source files for repository reports.
 
-It writes local metrics and checkpoints under `.rpiv/artifacts/`. Metrics deliberately omit command text and retain only risk metadata. The active event file has a default 1 MiB budget, rotates only at complete JSONL boundaries, and retains one previous file; both current and previous files remain internal operational data. Set `metricsEnabled: false` where even minimized local telemetry is inappropriate.
+It writes local metrics and checkpoints under `.rpiv/artifacts/`. Metrics deliberately omit command text and retain only risk metadata. The active event file has a default 1 MiB budget, rotates only at complete JSONL boundaries, and retains one previous file. Optional age retention is disabled by default and, when enabled, removes only whole active/previous files by filesystem `mtime`; it never parses or rewrites event lines. Both files remain internal operational data. Set `metricsEnabled: false` where even minimized local telemetry is inappropriate.
 
 ## Dependency and CI controls
 

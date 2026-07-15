@@ -15,7 +15,7 @@ Command classification uses bounded lexical tokenization to distinguish executab
 | `extensions/index.ts` | Pi event/command registration, session counters, widgets, notifications, metric dispatch | Classification regexes, config parsing policy, Git/file algorithms |
 | `src/command-risk.ts` | Pure command classification and severity policy | Filesystem, Pi UI, execution, persistence |
 | `src/work-guard-config.ts` | Defaults, precedence, validation, source/diagnostic reporting | Pi UI, process lifecycle, command decisions |
-| `src/event-log.ts` | Privacy-minimized append, byte-boundary rotation, and status/error reporting | Command decisions, raw command text |
+| `src/event-log.ts` | Privacy-minimized queued append, whole-file mtime cleanup, byte-boundary rotation, and status/error reporting | Command decisions, raw command text |
 | `src/repo-guard.ts` | Bounded Git inspection, file-size report, checkpoint rendering | Command interception and config resolution |
 | `scripts/` | Contributor/CI checks, coverage/release verification, reproducible benchmark | Runtime extension behavior |
 | `tests/` | Policy, integration-harness, repository, configuration, privacy, release, and workflow contracts | Production state |
@@ -32,7 +32,7 @@ Pi tool_call
   -> notify UI and append privacy-minimized metric when a risk is observed
 ```
 
-Configuration read/parse failures never disable the guard. Resolution keeps lower-precedence valid values and exposes diagnostics through `/work-guard config`. Metric writes and rotation are best-effort; failures never break tool execution and surface as privacy-safe status.
+Configuration read/parse failures never disable the guard. Resolution keeps lower-precedence valid values and exposes diagnostics through `/work-guard config`. Metric age cleanup, rotation, and writes share the existing in-process per-cwd queue and are best-effort; failures never break tool execution and surface as privacy-safe status.
 
 ## Command and persistence flow
 
@@ -40,7 +40,7 @@ Configuration read/parse failures never disable the guard. Resolution keeps lowe
 - `/work-guard config`: resolved values, ordered sources, validation diagnostics, and metric retention/error state.
 - `/work-checkpoint`: a timestamped Markdown snapshot under `.rpiv/artifacts/work-checkpoints/`.
 - `/work-phase` and `/work-budget`: in-memory session state; budget output also reads metric retention status.
-- Risk events: complete JSON Lines under `.rpiv/artifacts/work-guard/events.jsonl`; byte-boundary rotation retains `events.previous.jsonl` and no raw command text.
+- Risk events: complete JSON Lines under `.rpiv/artifacts/work-guard/events.jsonl`; byte-boundary rotation retains `events.previous.jsonl`, optional age cleanup deletes only whole files by `mtime`, and neither path stores raw command text.
 
 Generated artifacts are local, gitignored, and outside the package's durable API.
 

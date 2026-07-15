@@ -14,6 +14,7 @@ All notable changes are documented here using [Keep a Changelog](https://keepach
 - Coverage reporting with enforced global and critical-module floors, direct repository/checkpoint/failure-path tests, and CI artifacts.
 - Cross-shell risk fixtures for POSIX, PowerShell, cmd.exe, and unsupported shell composition, shared with the benchmark.
 - Size-bounded privacy-preserving event-log rotation and retention/error status.
+- Disabled-by-default whole-file event age retention with mtime, clock, queue, status, and best-effort failure semantics.
 - Tag-gated, least-privilege GitHub Release automation sourced from reviewed changelog notes.
 
 ### Changed

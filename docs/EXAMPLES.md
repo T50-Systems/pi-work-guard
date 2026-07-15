@@ -12,6 +12,14 @@ pi -e .
 
 Run `/work-guard config`; the project path must appear in `sources` with `diagnostics: none`. Pi reads project configuration with the user's privileges, so review it before use.
 
+To opt into 30-day whole-file event retention while keeping the byte budget, add both settings to the reviewed policy:
+
+```json
+{ "metricsMaxBytes": 1048576, "metricsMaxAgeDays": 30 }
+```
+
+Use `"metricsMaxAgeDays": null` (the default) to disable age pruning. Cleanup runs only when a metric append is queued; `/work-guard config` and `/work-budget` report but do not delete files.
+
 ## Strict CI or high-volume repository session
 
 Start Pi for one process with strict mode without changing shared settings:
