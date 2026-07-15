@@ -63,6 +63,8 @@ The extension allows low-risk warnings through, but blocks commands likely to fl
 
 Pipelines, redirections, subshells, chaining, PowerShell, and cmd.exe forms are never auto-fixed because appending text could change their meaning. Blocked calls include a `pi-work-guard` reason and a bounded retry example.
 
+Classification uses a bounded, quote-aware lexical scan of executable positions, shell operators, and recognized `pwsh`/`powershell -Command` and `cmd.exe /c` payloads. Quoted literals and comments are ignored when quoting is well formed; malformed or over-budget input falls back conservatively. This is policy-oriented tokenization, not a full shell parser or security sandbox.
+
 ## Configuration
 
 Defaults are conservative: `mode: "block"`, `autoFix: false`, and all unbounded-output rules enabled.

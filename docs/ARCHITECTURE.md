@@ -6,6 +6,8 @@ Pi loads `extensions/index.ts` in-process. The extension observes Bash tool call
 
 Pi Work Guard is a guardrail, not a security sandbox. Pi and allowed commands retain the current user's permissions.
 
+Command classification uses bounded lexical tokenization to distinguish executable positions from quoted literals and comments. It recognizes only documented shell operators and PowerShell/cmd command wrappers; malformed or over-budget input is classified with the prior conservative matching behavior. This does not provide full shell parsing or change the security boundary.
+
 ## Components
 
 | Component | Owns | Must not own |

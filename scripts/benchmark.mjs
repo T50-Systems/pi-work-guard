@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 import { performance } from "node:perf_hooks";
 import { analyzeBashCommand } from "../src/command-risk.ts";
-import { riskFixtures, unsupportedCompositionFixtures } from "../tests/fixtures/command-risk-fixtures.mjs";
+import {
+  malformedConservativeFixtures,
+  quoteAwareRiskFixtures,
+  quoteAwareSafeFixtures,
+  riskFixtures,
+  unsupportedCompositionFixtures,
+} from "../tests/fixtures/command-risk-fixtures.mjs";
 
 const args = new Set(process.argv.slice(2));
 const iterationsArg = process.argv.find((arg) => arg.startsWith("--iterations="));
@@ -15,6 +21,9 @@ if (!Number.isSafeInteger(iterations) || iterations < 1_000) {
 
 const commands = [
 	...riskFixtures.flatMap((fixture) => [fixture.risky, fixture.bounded]),
+	...quoteAwareSafeFixtures.map((fixture) => fixture.command),
+	...quoteAwareRiskFixtures.map((fixture) => fixture.command),
+	...malformedConservativeFixtures.map((fixture) => fixture.command),
 	...unsupportedCompositionFixtures.map((fixture) => fixture.command),
 	`${"x".repeat(8_001)}`,
 	"printf safe",

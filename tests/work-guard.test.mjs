@@ -4,7 +4,14 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import extension from "../extensions/index.ts";
-import { riskFixtures, unsupportedCompositionFixtures } from "./fixtures/command-risk-fixtures.mjs";
+import { analyzeBashCommand } from "../src/command-risk.ts";
+import {
+  malformedConservativeFixtures,
+  quoteAwareRiskFixtures,
+  quoteAwareSafeFixtures,
+  riskFixtures,
+  unsupportedCompositionFixtures,
+} from "./fixtures/command-risk-fixtures.mjs";
 
 async function createHarness(config = {}) {
   let toolCallHandler;
@@ -195,6 +202,7 @@ test("/work-guard config surfaces invalid overrides as warnings", async () => {
 
 for (const fixture of riskFixtures) {
   test(`${fixture.name} has focused mode and bounded-output regression coverage`, async () => {
+    assert.ok(analyzeBashCommand(fixture.risky).some((risk) => risk.code === fixture.riskCode), `${fixture.name} risk code`);
     for (const [mode, expected] of Object.entries(fixture.expectationByMode)) {
       assert.equal(fixture.classificationByMode[mode].falsePositive, false);
       assert.equal(fixture.classificationByMode[mode].falseNegative, false);
@@ -206,6 +214,32 @@ for (const fixture of riskFixtures) {
     }
   });
 }
+
+test("quote-aware fixtures ignore literal and comment command text", async () => {
+  const { runCommand } = await createHarness();
+  for (const fixture of quoteAwareSafeFixtures) {
+    assert.equal((await runCommand(fixture.command)).result, undefined, fixture.name);
+    assert.deepEqual(analyzeBashCommand(fixture.command), [], fixture.name);
+  }
+});
+
+test("quote-aware executable positions preserve risk codes and retry guidance", async () => {
+  const { runCommand } = await createHarness();
+  for (const fixture of quoteAwareRiskFixtures) {
+    assert.ok(analyzeBashCommand(fixture.command).some((risk) => risk.code === fixture.riskCode), fixture.name);
+    const { result } = await runCommand(fixture.command);
+    assert.equal(result?.block, true, fixture.name);
+    assert.match(result.reason, /Retry|explicit bound/, fixture.name);
+  }
+});
+
+test("malformed lexical input falls back conservatively", async () => {
+  const { runCommand } = await createHarness();
+  for (const fixture of malformedConservativeFixtures) {
+    assert.ok(analyzeBashCommand(fixture.command).some((risk) => risk.code === fixture.riskCode), fixture.name);
+    assert.equal((await runCommand(fixture.command)).result?.block, true, fixture.name);
+  }
+});
 
 test("cross-shell fixture auto-fix expectations are explicit and safe", async () => {
   for (const fixture of riskFixtures) {
