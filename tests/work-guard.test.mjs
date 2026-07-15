@@ -182,6 +182,7 @@ test("/work-guard config displays resolved sources and no diagnostics", async ()
   const lines = widgets.at(-1)?.lines ?? [];
   assert.ok(lines.includes("mode: strict"));
   assert.ok(lines.includes("autoFix: true"));
+  assert.ok(lines.includes("metricsMaxAgeDays: disabled"));
   assert.ok(lines.some((line) => line.startsWith("sources: built-in defaults")));
   assert.ok(lines.includes("diagnostics: none"));
   assert.ok(lines.some((line) => line.includes(path.join(cwd, ".rpiv", "artifacts", "work-guard", "events.jsonl"))));
@@ -283,7 +284,7 @@ test("metric-write failure never interrupts command enforcement and is reported"
 });
 
 test("metric retention rotates only complete JSON Lines at the byte threshold", async () => {
-  const { cwd, runCommand, runSlashCommand, widgets } = await createHarness({ metricsMaxBytes: 500 });
+  const { cwd, runCommand, runSlashCommand, widgets } = await createHarness({ metricsMaxBytes: 500, metricsMaxAgeDays: 30 });
   await Promise.all(Array.from({ length: 12 }, (_, index) => runCommand(index % 2 === 0 ? "git diff" : "cat README.md")));
   const dir = path.join(cwd, ".rpiv", "artifacts", "work-guard");
   for (const file of ["events.jsonl", "events.previous.jsonl"]) {
@@ -294,6 +295,8 @@ test("metric retention rotates only complete JSON Lines at the byte threshold", 
   }
   await runSlashCommand("work-budget");
   assert.ok((widgets.at(-1)?.lines ?? []).some((line) => line.includes("one previous valid JSONL file retained")));
+  assert.ok((widgets.at(-1)?.lines ?? []).some((line) => line.includes("metrics age retention: 30 days")));
+  assert.ok((widgets.at(-1)?.lines ?? []).some((line) => line.startsWith("metrics last successful age prune: 20")));
 });
 
 test("disabled metrics create no event file and status reports disabled", async () => {

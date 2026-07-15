@@ -24,7 +24,7 @@ Prioritize evidence-backed false-positive/false-negative fixes in command classi
 
 ## Later milestone: operational maturity
 
-Consider machine-readable diagnostics, retention controls, benchmark history, and automated release drafting only after real usage demonstrates value. Each must preserve local-only operation and command-text privacy.
+Consider machine-readable diagnostics, additional retention controls, benchmark history, and automated release drafting only after real usage demonstrates value. Each must preserve local-only operation and command-text privacy.
 
 ## Deferred unless an ADR justifies them
 

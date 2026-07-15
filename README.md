@@ -11,7 +11,7 @@ Use `pi-work-guard` when agents work in repositories where an unbounded `git dif
 - Blocks unbounded/high-output POSIX shell, PowerShell, and cmd.exe command forms and returns retry guidance to the agent.
 - Supports configurable modes: `off`, `warn`, `block`, and `strict`.
 - Optionally auto-fixes eligible simple commands; unsupported shell composition remains unchanged.
-- Persists privacy-minimized, size-bounded guard metrics to `.rpiv/artifacts/work-guard/events.jsonl`.
+- Persists privacy-minimized, byte-bounded guard metrics with optional whole-file age retention to `.rpiv/artifacts/work-guard/events.jsonl`.
 - Provides `/work-guard` for repository size/diff risk and `/work-guard config` for active rules and retention status.
 - Provides `/work-checkpoint` for resumable checkpoints and `/work-phase` for phase markers.
 - Ships coverage, file-size, release, and performance regression gates.
@@ -81,7 +81,8 @@ Global config can live under `workGuard` in `~/.pi/agent/settings.json`:
     "blockFileRead": true,
     "blockSearch": true,
     "metricsEnabled": true,
-    "metricsMaxBytes": 1048576
+    "metricsMaxBytes": 1048576,
+    "metricsMaxAgeDays": null
   }
 }
 ```
@@ -97,7 +98,7 @@ Modes:
 - `block`: block configured unbounded-output risks
 - `strict`: also block warning-severity risks such as oversized commands/heredoc batches
 
-Run `/work-guard config` to inspect resolved values, source precedence, diagnostics, and metric retention state. `/work-budget` also reports current bytes and the last privacy-safe write error. If `autoFix` is enabled, only eligible simple commands are rewritten in place instead of blocked.
+Run `/work-guard config` to inspect resolved values, source precedence, diagnostics, and metric retention state. `/work-budget` also reports current bytes, the effective age policy, the process-local last successful age prune, and the last privacy-safe write error. If `autoFix` is enabled, only eligible simple commands are rewritten in place instead of blocked.
 
 ## Commands
 
@@ -112,7 +113,7 @@ Run `/work-guard config` to inspect resolved values, source precedence, diagnost
 
 ## Metrics and privacy
 
-Metrics include timestamps, working directory, action, mode, risk codes, and command length. Command text is deliberately not persisted because it may contain credentials or other sensitive values. The active file rotates at `metricsMaxBytes` (default 1 MiB) and retains one prior valid JSONL file; set `metricsEnabled: false` to disable writes. Runtime metric and checkpoint files are gitignored by default.
+Metrics include timestamps, working directory, action, mode, risk codes, and command length. Command text is deliberately not persisted because it may contain credentials or other sensitive values. The active file rotates at `metricsMaxBytes` (default 1 MiB) and retains one prior valid JSONL file. Optional `metricsMaxAgeDays` retention is disabled by default (`null`); when enabled, the next queued metric append removes stale active/previous files only as whole files according to filesystem modification time. Set `metricsEnabled: false` to disable writes and cleanup. Runtime metric and checkpoint files are gitignored by default.
 
 ## Troubleshooting
 

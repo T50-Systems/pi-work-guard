@@ -6,5 +6,6 @@
   "blockFileRead": true,
   "blockSearch": true,
   "metricsEnabled": true,
-  "metricsMaxBytes": 1048576
+  "metricsMaxBytes": 1048576,
+  "metricsMaxAgeDays": null
 }
