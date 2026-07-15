@@ -54,6 +54,15 @@ const fixtureRows = [
     autoFix: "unchanged",
   },
   {
+    name: "pwsh git diff",
+    shell: "powershell",
+    riskCode: "unbounded-git-diff",
+    risky: "pwsh -Command \"git diff\"",
+    bounded: "pwsh -Command \"git diff --stat\"",
+    expectationByMode: { warn: "warn", block: "block", strict: "block" },
+    autoFix: "unchanged",
+  },
+  {
     name: "cmd.exe git diff",
     shell: "cmd",
     riskCode: "unbounded-git-diff",
@@ -89,6 +98,30 @@ const classificationByMode = {
 };
 
 export const riskFixtures = fixtureRows.map((fixture) => ({ ...fixture, classificationByMode }));
+
+export const quoteAwareSafeFixtures = [
+  { name: "quoted POSIX command literal", command: "printf '%s\\n' 'git diff'" },
+  { name: "escaped POSIX metacharacters", command: "printf '%s\\n' git\\ diff \\| head" },
+  { name: "POSIX comment text", command: "printf safe # git diff" },
+  { name: "quoted PowerShell script text", command: "pwsh -Command \"Write-Output 'git diff'\"" },
+  { name: "quoted cmd script text", command: "cmd.exe /c echo \"git diff\"" },
+  { name: "quoted bounded-read text", command: "printf '%s' 'cat README.md | head -20'" },
+  { name: "quoted heredoc text", command: "printf '%s' '<<A <<B <<C <<D'" },
+];
+
+export const quoteAwareRiskFixtures = [
+  { name: "operator executable position", command: "printf done; git diff", riskCode: "unbounded-git-diff" },
+  { name: "comment cannot add a bound", command: "git diff # | head -20", riskCode: "unbounded-git-diff" },
+  { name: "quoted option text cannot add a bound", command: "git diff --format='--stat'", riskCode: "unbounded-git-diff" },
+  { name: "PowerShell wrapper executable position", command: "pwsh -Command \"Write-Output done; git diff\"", riskCode: "unbounded-git-diff" },
+  { name: "cmd wrapper executable position", command: "cmd.exe /c \"echo done & git diff\"", riskCode: "unbounded-git-diff" },
+];
+
+export const malformedConservativeFixtures = [
+  { name: "unterminated POSIX quote", command: "printf 'git diff", riskCode: "unbounded-git-diff" },
+  { name: "unterminated PowerShell wrapper quote", command: "pwsh -Command \"Write-Output 'git diff'", riskCode: "unbounded-git-diff" },
+  { name: "dangling escape", command: "echo safe && rg TODO \\", riskCode: "search-output-budget" },
+];
 
 export const unsupportedCompositionFixtures = [
   { name: "pipeline", command: "rg TODO src | sort" },

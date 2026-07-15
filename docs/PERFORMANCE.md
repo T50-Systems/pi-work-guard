@@ -2,7 +2,7 @@
 
 ## Scope
 
-The hot path unique to Pi Work Guard is synchronous command-risk classification. Configuration reads and metric writes are asynchronous per risky tool call; repository reports and checkpoints are user-invoked. The baseline measures `analyzeBashCommand` over the shared deterministic corpus covering POSIX shell, PowerShell, cmd.exe, pipelines, redirections, subshells, chaining, allowed bounds, and oversized input.
+The hot path unique to Pi Work Guard is synchronous command-risk classification. Configuration reads and metric writes are asynchronous per risky tool call; repository reports and checkpoints are user-invoked. The baseline measures `analyzeBashCommand` over the shared deterministic corpus covering quote-aware safe literals and comments, malformed conservative fallbacks, POSIX shell, recognized PowerShell/cmd wrappers, pipelines, redirections, subshells, chaining, allowed bounds, and oversized input.
 
 ## Reproduce
 
