@@ -163,6 +163,72 @@ test("autoFix mutates eligible risky commands without logging command text", asy
   assert.equal(metric.finalCommand, undefined);
 });
 
+test("blocks Agent calls without max_turns", async () => {
+  const { runToolCall, notifications, readMetrics } = await createHarness();
+  const input = { subagent_type: "Plan", description: "Broad plan" };
+
+  const result = await runToolCall("Agent", input);
+
+  assert.equal(result?.block, true);
+  assert.match(result.reason, /explicit positive `max_turns`/);
+  assert.equal(notifications.at(-1)?.type, "error");
+  const metric = (await readMetrics()).at(-1);
+  assert.equal(metric.toolName, "Agent");
+  assert.equal(metric.agentClass, "plan");
+  assert.equal(metric.commandLength, undefined);
+  assert.deepEqual(metric.riskCodes, ["unbounded-agent"]);
+  assert.equal(JSON.stringify(metric).includes("Broad plan"), false);
+});
+
+test("allows Agent calls within the configured turn budget", async () => {
+  const { runToolCall } = await createHarness();
+
+  assert.equal(await runToolCall("Agent", { subagent_type: "Plan", max_turns: 15 }), undefined);
+  assert.equal(await runToolCall("Agent", { subagent_type: "Explore", max_turns: 25 }), undefined);
+});
+
+test("blocks Agent calls above the type-specific turn budget", async () => {
+  const { runToolCall, readMetrics } = await createHarness({ maxAgentTurns: 30, maxPlanAgentTurns: 12 });
+
+  const result = await runToolCall("Agent", { subagent_type: "Plan", max_turns: 13 });
+
+  assert.equal(result?.block, true);
+  assert.match(result.reason, /configured maximum is 12/);
+  assert.deepEqual((await readMetrics()).at(-1).riskCodes, ["agent-turn-budget"]);
+});
+
+test("autoFix adds or clamps Agent max_turns", async () => {
+  const { runToolCall, readMetrics } = await createHarness({ autoFix: true, maxAgentTurns: 20, maxPlanAgentTurns: 10 });
+  const missing = { subagent_type: "Plan" };
+  const excessive = { subagent_type: "general-purpose", max_turns: 100 };
+
+  assert.equal(await runToolCall("Agent", missing), undefined);
+  assert.equal(missing.max_turns, 10);
+  assert.equal(await runToolCall("Agent", excessive), undefined);
+  assert.equal(excessive.max_turns, 20);
+
+  const metrics = await readMetrics();
+  assert.equal(metrics.at(-2).effectiveMaxTurns, 10);
+  assert.equal(metrics.at(-1).requestedMaxTurns, 100);
+  assert.equal(metrics.at(-1).effectiveMaxTurns, 20);
+});
+
+test("warn mode reports unbounded Agent calls without blocking", async () => {
+  const { runToolCall, notifications, readMetrics } = await createHarness({ mode: "warn" });
+  const input = { subagent_type: "Plan" };
+
+  assert.equal(await runToolCall("Agent", input), undefined);
+  assert.equal(input.max_turns, undefined);
+  assert.equal(notifications.at(-1)?.type, "warning");
+  assert.equal((await readMetrics()).at(-1).action, "warn");
+});
+
+test("can disable Agent budget enforcement", async () => {
+  const { runToolCall } = await createHarness({ enforceAgentBudget: false });
+
+  assert.equal(await runToolCall("Agent", { subagent_type: "Plan" }), undefined);
+});
+
 test("block metrics omit potentially sensitive command text", async () => {
   const { runCommand, readMetrics } = await createHarness();
 
@@ -183,6 +249,9 @@ test("/work-guard config displays resolved sources and no diagnostics", async ()
   assert.ok(lines.includes("mode: strict"));
   assert.ok(lines.includes("autoFix: true"));
   assert.ok(lines.includes("metricsMaxAgeDays: disabled"));
+  assert.ok(lines.includes("enforceAgentBudget: true"));
+  assert.ok(lines.includes("maxAgentTurns: 25"));
+  assert.ok(lines.includes("maxPlanAgentTurns: 15"));
   assert.ok(lines.some((line) => line.startsWith("sources: built-in defaults")));
   assert.ok(lines.includes("diagnostics: none"));
   assert.ok(lines.some((line) => line.includes(path.join(cwd, ".rpiv", "artifacts", "work-guard", "events.jsonl"))));

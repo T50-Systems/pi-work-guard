@@ -17,6 +17,9 @@ Precedence is deterministic, lowest to highest:
 | `blockGitDiff` | boolean | `true` | Enforce the unbounded diff rule. |
 | `blockFileRead` | boolean | `true` | Enforce unbounded POSIX/PowerShell/cmd file-read rules. |
 | `blockSearch` | boolean | `true` | Enforce unbounded cross-shell search rules. |
+| `enforceAgentBudget` | boolean | `true` | Require and enforce explicit `max_turns` on Agent tool calls. |
+| `maxAgentTurns` | positive integer | `25` | Maximum turns for non-Plan Agent calls. |
+| `maxPlanAgentTurns` | positive integer | `15` | Maximum turns for Plan agents, capped by `maxAgentTurns`. |
 | `metricsEnabled` | boolean | `true` | Persist privacy-minimized local risk events. |
 | `metricsMaxBytes` | positive integer | `1048576` | Rotate the active event file before an append would exceed this byte budget. |
 | `metricsMaxAgeDays` | positive integer or `null` | `null` | Optional whole-file age limit. `null` disables age pruning; a number prunes event files by modification time before queued appends. |
@@ -35,7 +38,7 @@ Run `/work-guard config` first. Confirm:
 
 Then run `/work-budget` for in-session warning, block, auto-fix, retention, last-successful-prune, and last-write-error status. Run `/work-guard` for tracked source file-size issues and concise Git state.
 
-Risk events are JSON Lines. Each event has `timestamp`, `cwd`, `action`, `mode`, `riskCodes`, and `commandLength`; command text is never persisted. Before an append crosses `metricsMaxBytes`, the complete active file is moved to `events.previous.jsonl`, any older previous file is removed, and the new active file starts with the complete pending line. Thus both retained files remain parseable JSONL and the active file stays within the configured byte budget during normal writes.
+Risk events are JSON Lines. Every event has `timestamp`, `cwd`, `action`, `mode`, and `riskCodes`. Bash events add `commandLength`; Agent events add `toolName`, a coarse `agentClass` (`plan` or `other`), and requested/effective turn budgets when present. Command text and Agent prompts are never persisted. Before an append crosses `metricsMaxBytes`, the complete active file is moved to `events.previous.jsonl`, any older previous file is removed, and the new active file starts with the complete pending line. Thus both retained files remain parseable JSONL and the active file stays within the configured byte budget during normal writes.
 
 `metricsMaxAgeDays` is disabled by default with `null`. When it is a positive integer, age cleanup runs before byte rotation and append, inside the same in-process per-working-directory queue used for metric writes. Cleanup checks `events.jsonl` and `events.previous.jsonl` independently and deletes only an entire file; it never parses event timestamps, filters lines, truncates a file, or rewrites content. Disabling metrics with `metricsEnabled: false` also disables age cleanup because no metric append is queued. Status commands only observe state and never trigger cleanup.
 
@@ -52,6 +55,7 @@ To archive events, stop Pi and copy both `events.jsonl` and `events.previous.jso
 | Expected package commands are absent | Restart Pi; verify installation with `pi list` and `pi config`. | `/work-guard config` renders. |
 | Project override is ignored | Fix the exact JSON/type diagnostic and restart Pi. | Source appears with `diagnostics: none`. |
 | Safe command is blocked | Add an explicit output bound; only then consider disabling the specific rule. | Retry succeeds and remains bounded. |
+| Agent call is blocked | Add a positive `max_turns` no greater than the displayed limit, or revise the reviewed project policy. | Retry succeeds and `/work-budget` records no new block. |
 | Auto-fix changes semantics | Set `autoFix: false`; use the suggested explicit command. | Config output shows `autoFix: false`. |
 | Immediate compatibility problem | Launch one process with `PI_WORK_GUARD_MODE=off pi`. | Config shows environment source and `off`. |
 | Metrics cannot be written | Check the privacy-safe last error in `/work-budget`, then repository permissions and disk space. | A new risk appends one valid JSON line and status returns to `none`. |

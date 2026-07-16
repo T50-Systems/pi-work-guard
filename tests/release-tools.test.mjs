@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 const cwd = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("release verifier accepts the exact package tag", async () => {
-  const { stdout } = await execFileAsync(process.execPath, ["scripts/verify-release.mjs", "--tag", "v0.2.0"], { cwd });
+  const { stdout } = await execFileAsync(process.execPath, ["scripts/verify-release.mjs", "--tag", "v0.3.0"], { cwd });
   assert.match(stdout, /release verification ok/);
 });
 
@@ -22,10 +22,10 @@ test("release verifier rejects a mismatched tag before release creation", async 
 });
 
 test("release notes are extracted from the matching reviewed changelog section", async () => {
-  const { stdout } = await execFileAsync(process.execPath, ["scripts/release-notes.mjs", "v0.2.0"], { cwd });
-  assert.match(stdout, /^# v0\.2\.0 — 2026-07-06/m);
-  assert.match(stdout, /Configurable command guard modes/);
-  assert.equal(stdout.includes("[0.1.0]"), false);
+  const { stdout } = await execFileAsync(process.execPath, ["scripts/release-notes.mjs", "v0.3.0"], { cwd });
+  assert.match(stdout, /^# v0\.3\.0 — 2026-07-16/m);
+  assert.match(stdout, /Agent `max_turns` enforcement/);
+  assert.equal(stdout.includes("[0.2.0]"), false);
 });
 
 test("tag workflow is least-privilege, verifies before release, and never publishes", async () => {

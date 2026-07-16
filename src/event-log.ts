@@ -8,7 +8,11 @@ export interface WorkGuardMetric {
 	action: "warn" | "block" | "auto-fix";
 	mode: WorkGuardMode;
 	riskCodes: string[];
-	commandLength: number;
+	commandLength?: number;
+	toolName?: "Agent";
+	agentClass?: "plan" | "other";
+	requestedMaxTurns?: number;
+	effectiveMaxTurns?: number;
 }
 
 export interface EventLogOptions {

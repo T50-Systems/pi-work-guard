@@ -6,6 +6,7 @@ const summary = JSON.parse(await readFile(new URL("../coverage/coverage-summary.
 const metrics = ["lines", "branches", "functions", "statements"];
 const floors = {
   total: { lines: 75, branches: 65, functions: 75, statements: 75 },
+  "src/agent-risk.ts": { lines: 90, branches: 75, functions: 90, statements: 90 },
   "src/command-risk.ts": { lines: 85, branches: 75, functions: 85, statements: 85 },
   "src/repo-guard.ts": { lines: 80, branches: 70, functions: 80, statements: 80 },
   "src/event-log.ts": { lines: 80, branches: 65, functions: 80, statements: 80 },

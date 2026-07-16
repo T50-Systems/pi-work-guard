@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { agentClass, agentTurnLimit, analyzeAgentInput, type AgentInput } from "../src/agent-risk.ts";
 import { analyzeBashCommand, highestSeverity, type CommandRisk } from "../src/command-risk.ts";
 import { getMetricStatus, metricStatusLines, recordMetric } from "../src/event-log.ts";
 import { buildGuardReport, formatGuardReport, writeCheckpoint } from "../src/repo-guard.ts";
@@ -26,6 +27,14 @@ function getBashInput(event: unknown): BashInput | undefined {
 	return typeof command === "string" ? (input as BashInput) : undefined;
 }
 
+function getAgentInput(event: unknown): AgentInput | undefined {
+	if (!event || typeof event !== "object") return undefined;
+	const record = event as Record<string, unknown>;
+	if (typeof record.toolName !== "string" || record.toolName.toLowerCase() !== "agent") return undefined;
+	const input = record.input;
+	return input && typeof input === "object" ? (input as AgentInput) : undefined;
+}
+
 
 function shouldBlockRisk(risk: CommandRisk, config: WorkGuardConfig): boolean {
 	if (risk.severity === "block") return true;
@@ -46,6 +55,10 @@ function retryGuidanceFor(code: string): string {
 			return "Retry with an explicit bound such as `head`, `sed -n`, `-m`, `--max-count`, `--count`, or `--files`.";
 		case "command-too-large":
 			return "Split the work into smaller commands or phases.";
+		case "unbounded-agent":
+			return "Retry the Agent call with an explicit positive `max_turns` budget.";
+		case "agent-turn-budget":
+			return "Retry the Agent call with `max_turns` at or below the configured limit.";
 		default:
 			return "Adjust the command to keep output and memory use bounded, then retry.";
 	}
@@ -76,13 +89,74 @@ export default function (pi: ExtensionAPI) {
 	let autoFixedThisSession = 0;
 
 	pi.on("tool_call", async (event, ctx) => {
-		const input = getBashInput(event);
-		if (!input) return;
+		const bashInput = getBashInput(event);
+		const agentInput = getAgentInput(event);
+		if (!bashInput && !agentInput) return;
 
 		const { config } = await loadConfig(ctx.cwd);
 		if (config.mode === "off") return;
 
-		const originalCommand = input.command;
+		if (agentInput) {
+			const risks = analyzeAgentInput(agentInput, config);
+			if (risks.length === 0) return;
+
+			warningsThisSession += 1;
+			const limit = agentTurnLimit(agentInput, config);
+			const riskCodes = risks.map((risk) => risk.code);
+			const summary = risks.map((risk) => `${risk.code}: ${risk.message}`).join(" | ");
+			const guidance = risks.map((risk) => retryGuidanceFor(risk.code)).join(" ");
+			const shouldBlock = config.mode !== "warn";
+			const requestedMaxTurns = agentInput.max_turns;
+
+			if (shouldBlock && config.autoFix) {
+				agentInput.max_turns = limit;
+				autoFixedThisSession += 1;
+				notify(ctx, `WorkGuard auto-fixed Agent turn budget: ${summary}`, "warning");
+				await recordMetric(ctx.cwd, {
+					timestamp: new Date().toISOString(),
+					cwd: ctx.cwd,
+					action: "auto-fix",
+					mode: config.mode,
+					riskCodes,
+					toolName: "Agent",
+					agentClass: agentClass(agentInput),
+					requestedMaxTurns,
+					effectiveMaxTurns: limit,
+				}, config);
+				return;
+			}
+
+			if (shouldBlock) {
+				blockedThisSession += 1;
+				notify(ctx, `WorkGuard blocked Agent call: ${summary}`, "error");
+				await recordMetric(ctx.cwd, {
+					timestamp: new Date().toISOString(),
+					cwd: ctx.cwd,
+					action: "block",
+					mode: config.mode,
+					riskCodes,
+					toolName: "Agent",
+					agentClass: agentClass(agentInput),
+					requestedMaxTurns,
+				}, config);
+				return { block: true, reason: `pi-work-guard: ${summary} ${guidance}` };
+			}
+
+			notify(ctx, `WorkGuard warning: ${summary}`, "warning");
+			await recordMetric(ctx.cwd, {
+				timestamp: new Date().toISOString(),
+				cwd: ctx.cwd,
+				action: "warn",
+				mode: config.mode,
+				riskCodes,
+				toolName: "Agent",
+				agentClass: agentClass(agentInput),
+				requestedMaxTurns,
+			}, config);
+			return;
+		}
+
+		const originalCommand = bashInput!.command;
 		const risks = analyzeBashCommand(originalCommand);
 		const severity = highestSeverity(risks);
 		if (!severity) return;
@@ -97,7 +171,7 @@ export default function (pi: ExtensionAPI) {
 		if (shouldBlock && config.autoFix) {
 			const fixedCommand = autoFixCommand(originalCommand, blockableRisks, config);
 			if (fixedCommand && fixedCommand !== originalCommand) {
-				input.command = fixedCommand;
+				bashInput!.command = fixedCommand;
 				autoFixedThisSession += 1;
 				notify(ctx, `WorkGuard auto-fixed risky bash command: ${summary}`, "warning");
 				await recordMetric(ctx.cwd, {
@@ -198,11 +272,11 @@ export default function (pi: ExtensionAPI) {
 			const lines = [
 				"pi-work-guard budget",
 				`phase: ${phase ? `${phase.name} since ${phase.startedAt}` : "none"}`,
-				`bash risk warnings this session: ${warningsThisSession}`,
-				`bash commands blocked this session: ${blockedThisSession}`,
-				`bash commands auto-fixed this session: ${autoFixedThisSession}`,
+				`tool risk warnings this session: ${warningsThisSession}`,
+				`tool calls blocked this session: ${blockedThisSession}`,
+				`tool calls auto-fixed this session: ${autoFixedThisSession}`,
 				...metricStatusLines(metricStatus),
-				"recommendation: bounded reads/searches are enforced; keep phases small, validate after each phase, checkpoint before broad refactors.",
+				"recommendation: bounded Bash output and Agent turn budgets are enforced; keep phases small and checkpoint broad work.",
 			];
 			ctx.ui.setWidget("pi-work-guard", lines, { placement: "belowEditor" });
 			notify(ctx, "WorkGuard budget displayed.", "info");
