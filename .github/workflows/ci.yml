@@ -14,9 +14,13 @@ concurrency:
 
 jobs:
   validate:
-    name: Node.js 22 validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: Node.js 22 validation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - name: Check out repository
@@ -31,7 +35,10 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Type-check, test, and enforce file budgets
+      - name: Validate cross-shell fixtures and event-log rotation
+        run: node --test tests/work-guard.test.mjs tests/event-log.test.mjs
+
+      - name: Type-check, test, and enforce repository gates
         run: npm test
 
       - name: Measure and enforce test coverage
@@ -41,10 +48,13 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-node-22
+          name: coverage-node-22-${{ matrix.os }}
           path: coverage/
           if-no-files-found: error
           retention-days: 14
+
+      - name: Verify package contents without publishing
+        run: npm pack --dry-run
 
       - name: Audit high-severity dependency vulnerabilities
         run: npm audit --audit-level=high

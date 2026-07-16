@@ -43,6 +43,12 @@ Use a conventional type such as `docs/`, `fix/`, `feat/`, `test/`, or `chore/`. 
 
 This package is loaded by Pi directly from TypeScript, so `npm run build` is a no-emit compilation gate rather than an artifact build. Coverage floors are global lines/statements 75%, branches 65%, functions 75%; critical-module floors are encoded in `scripts/verify-coverage.mjs` and intentionally conservative.
 
+## Continuous integration contract
+
+Pull requests and pushes to `main` run Node.js 22 on both `ubuntu-latest` and `windows-latest`. Each matrix row has a 15-minute timeout and performs a locked `npm ci`, an explicit cross-shell fixture and event-log rotation pass, the complete `npm test` repository gate, coverage enforcement, `npm pack --dry-run`, and a high-severity dependency audit.
+
+Coverage reports are retained for 14 days with platform-specific names (`coverage-node-22-ubuntu-latest` and `coverage-node-22-windows-latest`) so matrix uploads cannot collide. The CI workflow has read-only repository contents permission, does not consume secrets, and does not publish packages.
+
 ## Interactive smoke test
 
 Run the checkout without installing it permanently:

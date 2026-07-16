@@ -16,6 +16,7 @@ All notable changes are documented here using [Keep a Changelog](https://keepach
 - Size-bounded privacy-preserving event-log rotation and retention/error status.
 - Disabled-by-default whole-file event age retention with mtime, clock, queue, status, and best-effort failure semantics.
 - Tag-gated, least-privilege GitHub Release automation sourced from reviewed changelog notes.
+- Cross-platform Node.js 22 CI on Ubuntu and Windows with explicit shell/rotation checks, package dry-run, high-severity audit, and platform-specific coverage artifacts.
 
 ### Changed
 

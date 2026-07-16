@@ -38,3 +38,20 @@ test("tag workflow is least-privilege, verifies before release, and never publis
   assert.ok(workflow.indexOf("verify:release") < workflow.indexOf("gh release"));
   assert.equal(/npm publish|NODE_AUTH_TOKEN|id-token: write/.test(workflow), false);
 });
+
+test("CI validates the Node.js 22 contract on Ubuntu and Windows without secrets", async () => {
+  const workflow = await readFile(path.join(cwd, ".github", "workflows", "ci.yml"), "utf8");
+  assert.match(workflow, /permissions:\s*\n\s*contents: read/);
+  assert.match(workflow, /os: \[ubuntu-latest, windows-latest\]/);
+  assert.match(workflow, /runs-on: \$\{\{ matrix\.os \}\}/);
+  assert.match(workflow, /node-version: 22/);
+  assert.match(workflow, /timeout-minutes: 15/);
+  assert.match(workflow, /npm ci/);
+  assert.match(workflow, /node --test tests\/work-guard\.test\.mjs tests\/event-log\.test\.mjs/);
+  assert.match(workflow, /npm test/);
+  assert.match(workflow, /npm run coverage/);
+  assert.match(workflow, /npm pack --dry-run/);
+  assert.match(workflow, /npm audit --audit-level=high/);
+  assert.match(workflow, /name: coverage-node-22-\$\{\{ matrix\.os \}\}/);
+  assert.equal(/secrets\.|github\.token|contents: write|id-token: write|packages: write/.test(workflow), false);
+});
