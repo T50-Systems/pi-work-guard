@@ -22,7 +22,7 @@ test("config precedence is defaults, global, project, then environment", async (
   );
   await writeFile(
     path.join(cwd, ".pi", "work-guard.json"),
-    JSON.stringify({ mode: "block", autoFixLineLimit: 25, blockSearch: false, metricsMaxAgeDays: 7 }),
+    JSON.stringify({ mode: "block", autoFixLineLimit: 25, blockSearch: false, maxAgentTurns: 30, maxPlanAgentTurns: 12, metricsMaxAgeDays: 7 }),
   );
 
   const resolution = await loadConfig(cwd, { home, env: { PI_WORK_GUARD_MODE: "strict" } });
@@ -34,6 +34,9 @@ test("config precedence is defaults, global, project, then environment", async (
     blockFileRead: true,
     blockSearch: false,
     autoFixLineLimit: 25,
+    enforceAgentBudget: true,
+    maxAgentTurns: 30,
+    maxPlanAgentTurns: 12,
     metricsEnabled: true,
     metricsMaxBytes: 1_048_576,
     metricsMaxAgeDays: 7,
@@ -65,7 +68,7 @@ test("invalid project values retain safe lower-precedence values and emit diagno
   const { home, cwd } = await fixture();
   await writeFile(
     path.join(cwd, ".pi", "work-guard.json"),
-    JSON.stringify({ mode: "dangerous", autoFix: "yes", autoFixLineLimit: 0, metricsEnabled: "yes", metricsMaxBytes: 0, metricsMaxAgeDays: 0, typoOption: true }),
+    JSON.stringify({ mode: "dangerous", autoFix: "yes", autoFixLineLimit: 0, enforceAgentBudget: "yes", maxAgentTurns: 0, maxPlanAgentTurns: 0, metricsEnabled: "yes", metricsMaxBytes: 0, metricsMaxAgeDays: 0, typoOption: true }),
   );
 
   const resolution = await loadConfig(cwd, { home, env: {} });
@@ -73,6 +76,9 @@ test("invalid project values retain safe lower-precedence values and emit diagno
   assert.equal(resolution.config.mode, "block");
   assert.equal(resolution.config.autoFix, false);
   assert.equal(resolution.config.autoFixLineLimit, 200);
+  assert.equal(resolution.config.enforceAgentBudget, true);
+  assert.equal(resolution.config.maxAgentTurns, 25);
+  assert.equal(resolution.config.maxPlanAgentTurns, 15);
   assert.equal(resolution.config.metricsEnabled, true);
   assert.equal(resolution.config.metricsMaxBytes, 1_048_576);
   assert.equal(resolution.config.metricsMaxAgeDays, null);
@@ -82,13 +88,16 @@ test("invalid project values retain safe lower-precedence values and emit diagno
       "unknown option `typoOption` ignored",
       "mode must be off, warn, block, or strict; using lower-precedence value",
       "autoFix must be boolean; using lower-precedence value",
+      "enforceAgentBudget must be boolean; using lower-precedence value",
       "metricsEnabled must be boolean; using lower-precedence value",
       "autoFixLineLimit must be a positive integer; using lower-precedence value",
+      "maxAgentTurns must be a positive integer; using lower-precedence value",
+      "maxPlanAgentTurns must be a positive integer; using lower-precedence value",
       "metricsMaxBytes must be a positive integer; using lower-precedence value",
       "metricsMaxAgeDays must be null or a positive integer; using lower-precedence value",
     ],
   );
-  assert.ok(configLines(resolution, cwd).some((line) => line.includes("diagnostics: 7")));
+  assert.ok(configLines(resolution, cwd).some((line) => line.includes("diagnostics: 10")));
 });
 
 test("malformed project JSON is reported without disabling the guard", async () => {

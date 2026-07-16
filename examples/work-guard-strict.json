@@ -5,6 +5,9 @@
   "blockGitDiff": true,
   "blockFileRead": true,
   "blockSearch": true,
+  "enforceAgentBudget": true,
+  "maxAgentTurns": 20,
+  "maxPlanAgentTurns": 10,
   "metricsEnabled": true,
   "metricsMaxBytes": 1048576,
   "metricsMaxAgeDays": null

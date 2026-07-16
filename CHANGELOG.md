@@ -4,6 +4,8 @@ All notable changes are documented here using [Keep a Changelog](https://keepach
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-16
+
 ### Added
 
 - Product vision, measurable maintenance targets, architecture boundaries, operations/recovery guidance, examples, roadmap milestones, and a documented release process.
@@ -17,6 +19,7 @@ All notable changes are documented here using [Keep a Changelog](https://keepach
 - Disabled-by-default whole-file event age retention with mtime, clock, queue, status, and best-effort failure semantics.
 - Tag-gated, least-privilege GitHub Release automation sourced from reviewed changelog notes.
 - Cross-platform Node.js 22 CI on Ubuntu and Windows with explicit shell/rotation checks, package dry-run, high-severity audit, and platform-specific coverage artifacts.
+- Explicit Agent `max_turns` enforcement with configurable general and Plan budgets, warn/block/auto-fix behavior, and privacy-minimized metrics.
 
 ### Changed
 

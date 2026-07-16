@@ -9,6 +9,7 @@ Use `pi-work-guard` when agents work in repositories where an unbounded `git dif
 ## Features
 
 - Blocks unbounded/high-output POSIX shell, PowerShell, and cmd.exe command forms and returns retry guidance to the agent.
+- Requires explicit `max_turns` budgets for `Agent` calls and enforces configurable general/Plan limits.
 - Supports configurable modes: `off`, `warn`, `block`, and `strict`.
 - Optionally auto-fixes eligible simple commands; unsupported shell composition remains unchanged.
 - Persists privacy-minimized, byte-bounded guard metrics with optional whole-file age retention to `.rpiv/artifacts/work-guard/events.jsonl`.
@@ -65,9 +66,15 @@ Pipelines, redirections, subshells, chaining, PowerShell, and cmd.exe forms are 
 
 Classification uses a bounded, quote-aware lexical scan of executable positions, shell operators, and recognized `pwsh`/`powershell -Command` and `cmd.exe /c` payloads. Quoted literals and comments are ignored when quoting is well formed; malformed or over-budget input falls back conservatively. This is policy-oriented tokenization, not a full shell parser or security sandbox.
 
+## Agent turn-budget guard
+
+The extension intercepts the `Agent` tool before execution. Every invocation must set a positive `max_turns`. The default maximum is 25 turns for general agents and 15 turns for `Plan` agents. These limits apply to foreground, background, scheduled, and resumed Agent calls.
+
+In `warn` mode, violations are recorded without blocking. In blocking modes with `autoFix: true`, a missing or excessive value is safely set to the applicable maximum. This guard constrains each invocation; it cannot yet terminate an already-running subagent based on elapsed time, nested tool-call count, or token usage.
+
 ## Configuration
 
-Defaults are conservative: `mode: "block"`, `autoFix: false`, and all unbounded-output rules enabled.
+Defaults are conservative: `mode: "block"`, `autoFix: false`, all unbounded-output rules enabled, and Agent calls constrained to 25 turns (15 for `Plan`).
 
 Global config can live under `workGuard` in `~/.pi/agent/settings.json`:
 
@@ -80,6 +87,9 @@ Global config can live under `workGuard` in `~/.pi/agent/settings.json`:
     "blockGitDiff": true,
     "blockFileRead": true,
     "blockSearch": true,
+    "enforceAgentBudget": true,
+    "maxAgentTurns": 25,
+    "maxPlanAgentTurns": 15,
     "metricsEnabled": true,
     "metricsMaxBytes": 1048576,
     "metricsMaxAgeDays": null
@@ -95,10 +105,10 @@ Modes:
 
 - `off`: do nothing
 - `warn`: notify and persist metrics, but never block
-- `block`: block configured unbounded-output risks
+- `block`: block configured unbounded-output risks and Agent budget violations
 - `strict`: also block warning-severity risks such as oversized commands/heredoc batches
 
-Run `/work-guard config` to inspect resolved values, source precedence, diagnostics, and metric retention state. `/work-budget` also reports current bytes, the effective age policy, the process-local last successful age prune, and the last privacy-safe write error. If `autoFix` is enabled, only eligible simple commands are rewritten in place instead of blocked.
+Run `/work-guard config` to inspect resolved values, source precedence, diagnostics, and metric retention state. `/work-budget` also reports current bytes, the effective age policy, the process-local last successful age prune, and the last privacy-safe write error. If `autoFix` is enabled, eligible simple Bash commands and Agent budgets are rewritten in place instead of blocked.
 
 ## Commands
 
@@ -113,7 +123,7 @@ Run `/work-guard config` to inspect resolved values, source precedence, diagnost
 
 ## Metrics and privacy
 
-Metrics include timestamps, working directory, action, mode, risk codes, and command length. Command text is deliberately not persisted because it may contain credentials or other sensitive values. The active file rotates at `metricsMaxBytes` (default 1 MiB) and retains one prior valid JSONL file. Optional `metricsMaxAgeDays` retention is disabled by default (`null`); when enabled, the next queued metric append removes stale active/previous files only as whole files according to filesystem modification time. Set `metricsEnabled: false` to disable writes and cleanup. Runtime metric and checkpoint files are gitignored by default.
+Metrics include timestamps, working directory, action, mode, and risk codes. Bash events include only command length; Agent events include only a coarse `plan`/`other` class and requested/effective turn budgets. Command text and Agent prompts are deliberately not persisted because they may contain credentials or other sensitive values. The active file rotates at `metricsMaxBytes` (default 1 MiB) and retains one prior valid JSONL file. Optional `metricsMaxAgeDays` retention is disabled by default (`null`); when enabled, the next queued metric append removes stale active/previous files only as whole files according to filesystem modification time. Set `metricsEnabled: false` to disable writes and cleanup. Runtime metric and checkpoint files are gitignored by default.
 
 ## Troubleshooting
 

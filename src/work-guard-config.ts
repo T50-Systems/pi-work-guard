@@ -11,6 +11,9 @@ export interface WorkGuardConfig {
 	blockFileRead: boolean;
 	blockSearch: boolean;
 	autoFixLineLimit: number;
+	enforceAgentBudget: boolean;
+	maxAgentTurns: number;
+	maxPlanAgentTurns: number;
 	metricsEnabled: boolean;
 	metricsMaxBytes: number;
 	metricsMaxAgeDays: number | null;
@@ -39,6 +42,9 @@ export const DEFAULT_CONFIG: WorkGuardConfig = {
 	blockFileRead: true,
 	blockSearch: true,
 	autoFixLineLimit: 200,
+	enforceAgentBudget: true,
+	maxAgentTurns: 25,
+	maxPlanAgentTurns: 15,
 	metricsEnabled: true,
 	metricsMaxBytes: 1_048_576,
 	metricsMaxAgeDays: null,
@@ -51,6 +57,9 @@ const CONFIG_KEYS = new Set<keyof WorkGuardConfig>([
 	"blockFileRead",
 	"blockSearch",
 	"autoFixLineLimit",
+	"enforceAgentBudget",
+	"maxAgentTurns",
+	"maxPlanAgentTurns",
 	"metricsEnabled",
 	"metricsMaxBytes",
 	"metricsMaxAgeDays",
@@ -89,13 +98,13 @@ function mergeConfig(
 		else diagnostics.push({ source, message: "mode must be off, warn, block, or strict; using lower-precedence value" });
 	}
 
-	for (const key of ["autoFix", "blockGitDiff", "blockFileRead", "blockSearch", "metricsEnabled"] as const) {
+	for (const key of ["autoFix", "blockGitDiff", "blockFileRead", "blockSearch", "enforceAgentBudget", "metricsEnabled"] as const) {
 		if (value[key] === undefined) continue;
 		if (typeof value[key] === "boolean") next[key] = value[key];
 		else diagnostics.push({ source, message: `${key} must be boolean; using lower-precedence value` });
 	}
 
-	for (const key of ["autoFixLineLimit", "metricsMaxBytes"] as const) {
+	for (const key of ["autoFixLineLimit", "maxAgentTurns", "maxPlanAgentTurns", "metricsMaxBytes"] as const) {
 		if (value[key] === undefined) continue;
 		if (isPositiveInteger(value[key])) next[key] = value[key];
 		else diagnostics.push({ source, message: `${key} must be a positive integer; using lower-precedence value` });
@@ -160,6 +169,9 @@ export function configLines(resolution: ConfigResolution, cwd: string): string[]
 		`blockGitDiff: ${config.blockGitDiff}`,
 		`blockFileRead: ${config.blockFileRead}`,
 		`blockSearch: ${config.blockSearch}`,
+		`enforceAgentBudget: ${config.enforceAgentBudget}`,
+		`maxAgentTurns: ${config.maxAgentTurns}`,
+		`maxPlanAgentTurns: ${config.maxPlanAgentTurns}`,
 		`metricsEnabled: ${config.metricsEnabled}`,
 		`metricsMaxBytes: ${config.metricsMaxBytes}`,
 		`metricsMaxAgeDays: ${config.metricsMaxAgeDays ?? "disabled"}`,
